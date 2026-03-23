@@ -265,10 +265,9 @@ export function POSInterface({ stockItems, branches, profile }: Props) {
           </button>
           <button
             onClick={() => setPaymentMethod('mercadopago')}
-            className={cn('flex flex-col items-center gap-1.5 py-2.5 rounded-lg border text-xs font-medium transition-all', paymentMethod === 'mercadopago' ? 'border-0' : 'border-border bg-white text-muted-foreground hover:border-neutral-300')}
-            style={paymentMethod === 'mercadopago' ? { backgroundColor: '#FFE600' } : {}}
+            className={cn('flex items-center justify-center py-2.5 rounded-lg border transition-all overflow-hidden', paymentMethod === 'mercadopago' ? 'border-yellow-400 ring-2 ring-yellow-400' : 'border-border bg-white hover:border-yellow-300')}
           >
-            <MPLogo size="sm" />
+            <MPLogo size="md" />
           </button>
         </div>
 

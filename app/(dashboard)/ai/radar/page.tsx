@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { Header } from '@/components/layout/header'
 import { RadarClient } from '@/components/ai/radar-client'
+import { buildBusinessContext } from '@/lib/ai/build-context'
 
 export default async function RadarPage() {
   const supabase = await createClient()
@@ -19,11 +20,13 @@ export default async function RadarPage() {
     { data: weekSaleItems },
     { data: stockItems },
     { count: alertCount },
+    context,
   ] = await Promise.all([
-    supabase.from('sales').select('total, payment_method, created_at, branch_id, items:sale_items(quantity, unit_price, product:products(name, category, is_star))').gte('created_at', today.toISOString()),
+    supabase.from('sales').select('total, payment_method, created_at, branch_id').gte('created_at', today.toISOString()),
     supabase.from('sale_items').select('quantity, unit_price, product:products(name, category, is_star), sale:sales!inner(created_at, branch_id)').gte('sale.created_at', weekAgo.toISOString()),
     supabase.from('stock').select('quantity, min_quantity, updated_at, product:products(name, is_star), branch:branches(name)'),
     supabase.from('alerts').select('id', { count: 'exact', head: true }).eq('status', 'active'),
+    buildBusinessContext(supabase),
   ])
 
   // Agrupar ventas por producto (semana)
@@ -37,35 +40,13 @@ export default async function RadarPage() {
     productSales[p.name].revenue += item.quantity * item.unit_price
   })
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const gP = (s: any) => s.product as { name: string; is_star?: boolean } | null
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const gB = (s: any) => s.branch as { name: string } | null
-
   const topProducts = Object.values(productSales).sort((a, b) => b.qty - a.qty).slice(0, 10)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const stagnantStock = stockItems?.filter((s) => {
-    const sold = productSales[gP(s)?.name ?? '']
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sold = productSales[((s as any).product as { name: string } | null)?.name ?? '']
     return !sold && s.quantity > 0
   }) ?? []
-
-  const context = `
-VENTAS HOY: ${todaySales?.length ?? 0} ventas — Total: $${(todaySales?.reduce((s, v) => s + v.total, 0) ?? 0).toLocaleString('es-AR')}
-
-TOP PRODUCTOS (últimos 7 días):
-${topProducts.map((p, i) => `${i + 1}. ${p.name}${p.is_star ? ' ⭐' : ''}: ${p.qty} unidades vendidas — $${p.revenue.toLocaleString('es-AR')}`).join('\n')}
-
-PRODUCTOS ESTANCADOS (sin ventas en 7 días, con stock):
-${stagnantStock.slice(0, 10).map((s) => {
-  const p = gP(s); const b = gB(s)
-  return `- ${p?.name}${p?.is_star ? ' ⭐' : ''}: ${s.quantity} unidades — ${b?.name}`
-}).join('\n') || 'Ninguno'}
-
-STOCK BAJO:
-${stockItems?.filter((s) => s.quantity <= s.min_quantity).map((s) => {
-  const p = gP(s); const b = gB(s)
-  return `- ${p?.name}${p?.is_star ? ' ⭐ ESTRELLA' : ''}: ${s.quantity}/${s.min_quantity} — ${b?.name}`
-}).join('\n') || 'Ninguno'}
-`
 
   return (
     <>

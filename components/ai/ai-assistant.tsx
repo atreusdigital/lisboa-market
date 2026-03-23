@@ -46,16 +46,26 @@ export function AIAssistant({ context, profile }: Props) {
     const msg = text ?? input.trim()
     if (!msg || loading) return
     setInput('')
-    setMessages((prev) => [...prev, { role: 'user', content: msg }])
+
+    const userMessage: Message = { role: 'user', content: msg }
+    const newMessages = [...messages, userMessage]
+    setMessages(newMessages)
     setLoading(true)
 
-    const res = await fetch('/api/ai/assistant', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: msg, context }),
-    })
-    const { reply } = await res.json()
-    setMessages((prev) => [...prev, { role: 'assistant', content: reply }])
+    try {
+      // Pasar historial completo para conversación multi-turno
+      const history = newMessages.slice(1, -1)
+
+      const res = await fetch('/api/ai/assistant', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: msg, context, history }),
+      })
+      const { reply } = await res.json()
+      setMessages((prev) => [...prev, { role: 'assistant', content: reply }])
+    } catch {
+      setMessages((prev) => [...prev, { role: 'assistant', content: 'Hubo un error al conectar. Intentá de nuevo.' }])
+    }
     setLoading(false)
   }
 

@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { Header } from '@/components/layout/header'
 import { ReorderClient } from '@/components/ai/reorder-client'
+import { buildBusinessContext } from '@/lib/ai/build-context'
 
 export default async function ReorderPage() {
   const supabase = await createClient()
@@ -16,15 +17,15 @@ export default async function ReorderPage() {
   const [
     { data: stockItems },
     { data: weekSaleItems },
-    { data: suppliers },
     { data: recentOrders },
     { count: alertCount },
+    context,
   ] = await Promise.all([
     supabase.from('stock').select('quantity, min_quantity, product:products(id, name, category, cost_price, is_star), branch:branches(name)'),
     supabase.from('sale_items').select('quantity, product:products(name), sale:sales!inner(created_at)').gte('sale.created_at', weekAgo.toISOString()),
-    supabase.from('suppliers').select('id, name'),
     supabase.from('supplier_order_items').select('product:products(name), order:supplier_orders(supplier:suppliers(name), created_at)').order('created_at', { ascending: false }).limit(50),
     supabase.from('alerts').select('id', { count: 'exact', head: true }).eq('status', 'active'),
+    buildBusinessContext(supabase),
   ])
 
   // Calcular velocidad de venta por producto
@@ -44,24 +45,6 @@ export default async function ReorderPage() {
     const supplier = ((item as any).order as { supplier: { name: string } } | null)?.supplier?.name
     if (name && supplier && !productSupplier[name]) productSupplier[name] = supplier
   })
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const gP = (s: any) => s.product as { name: string; cost_price?: number; is_star?: boolean } | null
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const gB = (s: any) => s.branch as { name: string } | null
-
-  const context = `
-STOCK ACTUAL Y NECESIDADES:
-${stockItems?.map((s) => {
-  const p = gP(s); const b = gB(s)
-  const velocity = salesVelocity[p?.name ?? ''] ?? 0
-  const supplier = productSupplier[p?.name ?? ''] ?? 'Sin proveedor asignado'
-  const needsReorder = s.quantity <= s.min_quantity
-  return `- ${p?.name}${p?.is_star ? ' ⭐' : ''}: stock ${s.quantity} (mín ${s.min_quantity}) | vendido/semana: ${velocity} | ${b?.name} | Proveedor: ${supplier}${needsReorder ? ' ⚠️ REPONER' : ''} | costo: $${p?.cost_price ?? 0}`
-}).join('\n') ?? ''}
-
-PROVEEDORES DISPONIBLES: ${suppliers?.map((s) => s.name).join(', ')}
-`
 
   return (
     <>
