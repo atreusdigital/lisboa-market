@@ -65,7 +65,7 @@ export function DashboardDirector({ profile, stats }: Props) {
           </Link>
         </Card>
 
-        <Card className="p-5 border-border bg-black text-white">
+        <Card className="p-5 border-border bg-black text-white flex flex-col items-center text-center">
           <Truck className="w-5 h-5 mb-3 opacity-60" />
           <p className="text-sm font-medium">Registrar pedido</p>
           <p className="text-xs opacity-60 mt-1">Escanear con IA</p>
