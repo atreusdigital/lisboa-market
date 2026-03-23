@@ -13,6 +13,7 @@ export type Profile = {
   email: string
   role: UserRole
   branch_id: string | null
+  branch_ids?: string[]
   avatar_url: string | null
   created_at: string
   branch?: Branch

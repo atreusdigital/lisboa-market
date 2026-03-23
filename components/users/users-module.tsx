@@ -21,7 +21,7 @@ const roleColors: Record<string, string> = {
 }
 
 const roleLabels: Record<string, string> = {
-  director: 'Director',
+  director: 'Dueño',
   admin: 'Encargado',
   empleado: 'Empleado',
 }
@@ -44,18 +44,30 @@ export function UsersModule({ users, branches, activityLog, currentProfile }: Pr
   const [editingUser, setEditingUser] = useState<string | null>(null)
   const [editRole, setEditRole] = useState('')
   const [editBranch, setEditBranch] = useState('')
+  const [editBranchIds, setEditBranchIds] = useState<string[]>([])
   const supabase = createClient()
 
   function startEdit(user: Profile) {
     setEditingUser(user.id)
     setEditRole(user.role)
     setEditBranch(user.branch_id ?? '')
+    setEditBranchIds(user.branch_ids ?? [])
+  }
+
+  function toggleBranchId(id: string) {
+    setEditBranchIds((prev) =>
+      prev.includes(id) ? prev.filter((b) => b !== id) : [...prev, id]
+    )
   }
 
   async function saveEdit(userId: string) {
     const { error } = await supabase
       .from('profiles')
-      .update({ role: editRole, branch_id: editBranch || null })
+      .update({
+        role: editRole,
+        branch_id: editBranch || null,
+        branch_ids: editBranchIds,
+      })
       .eq('id', userId)
 
     if (error) { toast.error('Error al actualizar usuario'); return }
@@ -69,7 +81,7 @@ export function UsersModule({ users, branches, activityLog, currentProfile }: Pr
   const empleados = users.filter((u) => u.role === 'empleado')
 
   const grouped = [
-    { label: 'Directores', users: directors },
+    { label: 'Dueños', users: directors },
     { label: 'Encargados', users: admins },
     { label: 'Empleados', users: empleados },
   ]
@@ -90,78 +102,105 @@ export function UsersModule({ users, branches, activityLog, currentProfile }: Pr
         {/* USUARIOS */}
         <TabsContent value="users" className="mt-4 space-y-5">
           {grouped.map(({ label, users: groupUsers }) => (
-            <div key={label}>
-              <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">{label}</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-                {groupUsers.map((user) => (
-                  <Card key={user.id} className="p-4 border-border bg-white">
-                    <div className="flex items-start gap-3">
-                      <div
-                        className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 text-white font-semibold text-sm"
-                        style={{ backgroundColor: LISBOA_GREEN }}
-                      >
-                        {user.full_name.charAt(0).toUpperCase()}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{user.full_name}</p>
-                        <p className="text-xs text-muted-foreground truncate">{user.branch?.name ?? 'Sin sucursal'}</p>
-                        <Badge className={cn('text-[10px] border-0 mt-1', roleColors[user.role])}>
-                          {roleLabels[user.role]}
-                        </Badge>
-                      </div>
-                      {user.id !== currentProfile.id && (
-                        <button
-                          onClick={() => editingUser === user.id ? setEditingUser(null) : startEdit(user)}
-                          className="text-xs text-muted-foreground hover:text-foreground transition-colors shrink-0"
-                        >
-                          {editingUser === user.id ? 'Cancelar' : 'Editar'}
-                        </button>
-                      )}
-                    </div>
-
-                    {editingUser === user.id && (
-                      <div className="mt-3 pt-3 border-t border-border space-y-2">
-                        <div className="space-y-1">
-                          <Label className="text-xs">Rol</Label>
-                          <Select value={editRole} onValueChange={(v) => v && setEditRole(v)}>
-                            <SelectTrigger className="h-8 text-xs">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="director">Director</SelectItem>
-                              <SelectItem value="admin">Encargado</SelectItem>
-                              <SelectItem value="empleado">Empleado</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-xs">Sucursal</Label>
-                          <Select value={editBranch} onValueChange={(v) => setEditBranch(v ?? '')}>
-                            <SelectTrigger className="h-8 text-xs">
-                              <SelectValue placeholder="Sin sucursal" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="">Sin sucursal</SelectItem>
-                              {branches.map((b) => (
-                                <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <Button
-                          size="sm"
-                          className="w-full h-7 text-xs text-white"
+            groupUsers.length === 0 ? null : (
+              <div key={label}>
+                <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">{label}</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                  {groupUsers.map((user) => (
+                    <Card key={user.id} className="p-4 border-border bg-white">
+                      <div className="flex items-start gap-3">
+                        <div
+                          className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 text-white font-semibold text-sm"
                           style={{ backgroundColor: LISBOA_GREEN }}
-                          onClick={() => saveEdit(user.id)}
                         >
-                          Guardar cambios
-                        </Button>
+                          {user.full_name.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{user.full_name}</p>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {user.role === 'director'
+                              ? (user.branch_ids && user.branch_ids.length > 0
+                                  ? `${user.branch_ids.length} sucursales`
+                                  : 'Todas las sucursales')
+                              : (user.branch?.name ?? 'Sin sucursal')}
+                          </p>
+                          <Badge className={cn('text-[10px] border-0 mt-1', roleColors[user.role])}>
+                            {roleLabels[user.role]}
+                          </Badge>
+                        </div>
+                        {user.id !== currentProfile.id && (
+                          <button
+                            onClick={() => editingUser === user.id ? setEditingUser(null) : startEdit(user)}
+                            className="text-xs text-muted-foreground hover:text-foreground transition-colors shrink-0"
+                          >
+                            {editingUser === user.id ? 'Cancelar' : 'Editar'}
+                          </button>
+                        )}
                       </div>
-                    )}
-                  </Card>
-                ))}
+
+                      {editingUser === user.id && (
+                        <div className="mt-3 pt-3 border-t border-border space-y-3">
+                          <div className="space-y-1">
+                            <Label className="text-xs">Rol</Label>
+                            <Select value={editRole} onValueChange={(v) => v && setEditRole(v)}>
+                              <SelectTrigger className="h-8 text-xs">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="director">Dueño</SelectItem>
+                                <SelectItem value="admin">Encargado</SelectItem>
+                                <SelectItem value="empleado">Empleado</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          <div className="space-y-1">
+                            <Label className="text-xs">Sucursal principal</Label>
+                            <Select value={editBranch} onValueChange={(v) => setEditBranch(v ?? '')}>
+                              <SelectTrigger className="h-8 text-xs">
+                                <SelectValue placeholder="Sin sucursal" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="">Sin sucursal</SelectItem>
+                                {branches.map((b) => (
+                                  <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          <div className="space-y-1.5">
+                            <Label className="text-xs">Acceso a sucursales</Label>
+                            <div className="flex flex-col gap-1.5">
+                              {branches.map((b) => (
+                                <label key={b.id} className="flex items-center gap-2 cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={editBranchIds.includes(b.id)}
+                                    onChange={() => toggleBranchId(b.id)}
+                                    className="rounded border-border"
+                                  />
+                                  <span className="text-xs">{b.name}</span>
+                                </label>
+                              ))}
+                            </div>
+                          </div>
+
+                          <Button
+                            size="sm"
+                            className="w-full h-7 text-xs text-white"
+                            style={{ backgroundColor: LISBOA_GREEN }}
+                            onClick={() => saveEdit(user.id)}
+                          >
+                            Guardar cambios
+                          </Button>
+                        </div>
+                      )}
+                    </Card>
+                  ))}
+                </div>
               </div>
-            </div>
+            )
           ))}
         </TabsContent>
 

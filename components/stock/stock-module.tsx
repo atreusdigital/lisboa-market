@@ -7,9 +7,10 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Search, Plus, AlertTriangle, Camera, ChevronDown } from 'lucide-react'
+import { Search, Plus, AlertTriangle, Camera, History } from 'lucide-react'
 import { ProductDialog } from './product-dialog'
 import { ScanDeliveryDialog } from './scan-delivery-dialog'
+import { StockMovementsDialog } from './stock-movements-dialog'
 import { cn } from '@/lib/utils'
 
 interface Props {
@@ -25,6 +26,7 @@ export function StockModule({ stockItems, branches, products, profile }: Props) 
   const [statusFilter, setStatusFilter] = useState('all')
   const [showProductDialog, setShowProductDialog] = useState(false)
   const [showScanDialog, setShowScanDialog] = useState(false)
+  const [movementsItem, setMovementsItem] = useState<Stock | null>(null)
 
   const isAdmin = profile.role !== 'empleado'
 
@@ -131,12 +133,13 @@ export function StockModule({ stockItems, branches, products, profile }: Props) 
                 <th className="text-right px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Mínimo</th>
                 <th className="text-right px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Precio venta</th>
                 <th className="text-center px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Estado</th>
+                <th className="px-4 py-3"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-10 text-center text-sm text-muted-foreground">
+                  <td colSpan={8} className="px-4 py-10 text-center text-sm text-muted-foreground">
                     No hay productos que coincidan con la búsqueda
                   </td>
                 </tr>
@@ -176,6 +179,15 @@ export function StockModule({ stockItems, branches, products, profile }: Props) 
                           {isCritical ? 'Sin stock' : isLow ? 'Stock bajo' : 'OK'}
                         </Badge>
                       </td>
+                      <td className="px-4 py-3 text-right">
+                        <button
+                          onClick={() => setMovementsItem(item)}
+                          className="p-1.5 rounded hover:bg-neutral-100 transition-colors text-muted-foreground hover:text-foreground"
+                          title="Ver movimientos"
+                        >
+                          <History className="w-3.5 h-3.5" />
+                        </button>
+                      </td>
                     </tr>
                   )
                 })
@@ -203,6 +215,15 @@ export function StockModule({ stockItems, branches, products, profile }: Props) 
           branches={branches}
           profileBranchId={profile.branch_id}
           isDirector={profile.role === 'director'}
+        />
+      )}
+
+      {movementsItem && (
+        <StockMovementsDialog
+          open={!!movementsItem}
+          onClose={() => setMovementsItem(null)}
+          stockItem={movementsItem}
+          profile={profile}
         />
       )}
     </div>

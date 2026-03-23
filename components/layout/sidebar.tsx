@@ -28,7 +28,7 @@ const navItems = [
 ]
 
 const roleLabels: Record<string, string> = {
-  director: 'Director',
+  director: 'Dueño',
   admin: 'Encargado',
   empleado: 'Empleado',
 }
@@ -71,7 +71,9 @@ export function Sidebar({ profile }: SidebarProps) {
           {profile.role === 'director' ? 'Acceso' : 'Sucursal'}
         </span>
         <p className="text-xs font-medium mt-0.5 text-white/80">
-          {profile.role === 'director' ? 'Todas las sucursales' : (profile.branch?.name ?? '—')}
+          {profile.role === 'director'
+            ? (profile.branch_ids && profile.branch_ids.length > 0 ? `${profile.branch_ids.length} sucursales` : 'Todas las sucursales')
+            : (profile.branch?.name ?? '—')}
         </p>
       </div>
 
