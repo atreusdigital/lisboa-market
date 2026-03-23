@@ -16,6 +16,7 @@ import {
   Bot,
   TrendingUp,
   ClipboardList,
+  Receipt,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
@@ -24,6 +25,7 @@ const navItems = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard, roles: ['director', 'admin', 'empleado'] },
   { href: '/pos', label: 'Punto de Venta', icon: ShoppingCart, roles: ['director', 'admin', 'empleado'] },
   { href: '/stock', label: 'Stock', icon: Package, roles: ['director', 'admin', 'empleado'] },
+  { href: '/sales', label: 'Ventas', icon: Receipt, roles: ['director', 'admin'] },
   { href: '/suppliers', label: 'Proveedores', icon: Truck, roles: ['director', 'admin'] },
   { href: '/alerts', label: 'Alertas', icon: Bell, roles: ['director', 'admin'] },
   { href: '/analytics', label: 'Reportes', icon: BarChart3, roles: ['director', 'admin'] },
@@ -63,14 +65,23 @@ export function Sidebar({ profile }: SidebarProps) {
   return (
     <aside className="w-56 flex flex-col h-screen sticky top-0 shrink-0" style={{ backgroundColor: '#1C2B23' }}>
       {/* Logo */}
-      <div className="h-14 flex items-center gap-2.5 px-5" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-        <div className="w-7 h-7 rounded flex items-center justify-center shrink-0 bg-white/10">
-          <span className="text-white font-bold text-sm">L</span>
-        </div>
-        <div>
-          <span className="font-semibold text-sm tracking-tight text-white">Lisboa</span>
-          <span className="font-light text-sm text-white/60 ml-1">Market</span>
-        </div>
+      <div className="h-16 flex items-center justify-center px-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+        <svg viewBox="0 0 120 120" className="w-12 h-12 shrink-0" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="60" cy="60" r="58" fill="#1C2B23" stroke="white" strokeWidth="1.5"/>
+          <circle cx="60" cy="60" r="50" fill="none" stroke="white" strokeWidth="0.5" strokeOpacity="0.4"/>
+          {/* Texto circular superior: MARKET 24/7 • BEBIDAS • KIOSCO */}
+          <path id="topArc" d="M 60,60 m -42,0 a 42,42 0 1,1 84,0" fill="none"/>
+          <text fontSize="7.5" fill="white" fontFamily="Arial, sans-serif" fontWeight="600" letterSpacing="2.2">
+            <textPath href="#topArc" startOffset="2%">MARKET 24/7 • BEBIDAS • KIOSCO •</textPath>
+          </text>
+          {/* Texto circular inferior: MARKET 24/7 • BEBIDAS • KIOSCO */}
+          <path id="bottomArc" d="M 18,60 a 42,42 0 0,0 84,0" fill="none"/>
+          <text fontSize="7.5" fill="white" fontFamily="Arial, sans-serif" fontWeight="600" letterSpacing="2.2">
+            <textPath href="#bottomArc" startOffset="2%">MARKET 24/7 • BEBIDAS • KIOSCO •</textPath>
+          </text>
+          {/* L24 central */}
+          <text x="60" y="67" textAnchor="middle" fontSize="26" fontWeight="700" fill="white" fontFamily="Arial, sans-serif" letterSpacing="-1">L24</text>
+        </svg>
       </div>
 
       {/* Branch badge */}
