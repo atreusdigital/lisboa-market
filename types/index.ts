@@ -1,0 +1,173 @@
+export type UserRole = 'director' | 'admin' | 'empleado'
+
+export type Branch = {
+  id: string
+  name: string
+  address: string
+  created_at: string
+}
+
+export type Profile = {
+  id: string
+  full_name: string
+  email: string
+  role: UserRole
+  branch_id: string | null
+  avatar_url: string | null
+  created_at: string
+  branch?: Branch
+}
+
+export type Category = {
+  id: string
+  name: string
+}
+
+export type Product = {
+  id: string
+  name: string
+  category: string
+  barcode: string | null
+  cost_price: number
+  sell_price: number
+  image_url: string | null
+  created_at: string
+}
+
+export type Stock = {
+  id: string
+  product_id: string
+  branch_id: string
+  quantity: number
+  min_quantity: number
+  updated_at: string
+  product?: Product
+  branch?: Branch
+}
+
+export type PaymentMethod = 'mercadopago' | 'efectivo'
+
+export type Sale = {
+  id: string
+  branch_id: string
+  user_id: string
+  total: number
+  payment_method: PaymentMethod
+  mp_payment_id: string | null
+  created_at: string
+  branch?: Branch
+  user?: Profile
+  items?: SaleItem[]
+}
+
+export type SaleItem = {
+  id: string
+  sale_id: string
+  product_id: string
+  quantity: number
+  unit_price: number
+  product?: Product
+}
+
+export type Supplier = {
+  id: string
+  name: string
+  contact_name: string | null
+  phone: string | null
+  email: string | null
+  created_at: string
+}
+
+export type OrderStatus = 'pending' | 'received' | 'confirmed' | 'cancelled'
+
+export type SupplierOrder = {
+  id: string
+  supplier_id: string
+  branch_id: string
+  user_id: string
+  status: OrderStatus
+  total: number
+  delivery_photo_url: string | null
+  notes: string | null
+  created_at: string
+  supplier?: Supplier
+  branch?: Branch
+  user?: Profile
+  items?: SupplierOrderItem[]
+}
+
+export type SupplierOrderItem = {
+  id: string
+  order_id: string
+  product_id: string
+  quantity_ordered: number
+  quantity_received: number
+  unit_price: number
+  product?: Product
+}
+
+export type AccountPayable = {
+  id: string
+  supplier_id: string
+  branch_id: string
+  balance: number
+  updated_at: string
+  supplier?: Supplier
+  branch?: Branch
+}
+
+export type Payment = {
+  id: string
+  account_id: string
+  amount: number
+  method: string
+  status: 'pending' | 'completed' | 'failed'
+  notes: string | null
+  created_at: string
+  confirmed_by: string | null
+}
+
+export type AlertType =
+  | 'low_stock'
+  | 'high_demand_low_stock'
+  | 'stagnant_product'
+  | 'payment_due'
+  | 'cash_anomaly'
+
+export type Alert = {
+  id: string
+  type: AlertType
+  product_id: string | null
+  branch_id: string
+  message: string
+  status: 'active' | 'resolved'
+  created_at: string
+  resolved_at: string | null
+  product?: Product
+  branch?: Branch
+}
+
+export type ActivityLog = {
+  id: string
+  user_id: string
+  action: string
+  entity_type: string
+  entity_id: string | null
+  metadata: Record<string, unknown> | null
+  created_at: string
+  user?: Profile
+}
+
+export type CartItem = {
+  product: Product
+  quantity: number
+  stock_available: number
+}
+
+export type DashboardStats = {
+  total_sales_today: number
+  total_revenue_today: number
+  low_stock_count: number
+  active_alerts: number
+  pending_orders: number
+}
