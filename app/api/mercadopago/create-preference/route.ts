@@ -37,10 +37,13 @@ export async function POST(request: NextRequest) {
       },
     })
 
+    const isSandbox = process.env.MP_ACCESS_TOKEN?.startsWith('TEST-')
+    const paymentUrl = isSandbox ? result.sandbox_init_point : result.init_point
+
     return NextResponse.json({
       preference_id: result.id,
-      init_point: result.init_point,
-      sandbox_init_point: result.sandbox_init_point,
+      init_point: paymentUrl,
+      is_sandbox: isSandbox,
     })
   } catch (error) {
     console.error('MP create preference error:', error)

@@ -20,6 +20,7 @@ interface Props {
 export function MPPaymentModal({ externalReference, items, total, onSuccess, onCancel }: Props) {
   const [status, setStatus] = useState<PaymentStatus>('loading')
   const [initPoint, setInitPoint] = useState<string | null>(null)
+  const [isSandbox, setIsSandbox] = useState(false)
   const [paymentId, setPaymentId] = useState<string | null>(null)
   const [elapsed, setElapsed] = useState(0)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -48,6 +49,7 @@ export function MPPaymentModal({ externalReference, items, total, onSuccess, onC
       if (!res.ok || !data.init_point) throw new Error(data.error ?? 'Error al crear preferencia')
 
       setInitPoint(data.init_point)
+      setIsSandbox(data.is_sandbox ?? false)
       setStatus('waiting')
       startPolling()
       startTimer()
@@ -110,7 +112,12 @@ export function MPPaymentModal({ externalReference, items, total, onSuccess, onC
         {/* Header */}
         <div className="px-6 py-4 border-b border-border flex items-center justify-between" style={{ backgroundColor: LISBOA_GREEN }}>
           <div>
-            <p className="text-white font-semibold text-sm">Pago con MercadoPago</p>
+            <div className="flex items-center gap-2">
+              <p className="text-white font-semibold text-sm">Pago con MercadoPago</p>
+              {isSandbox && (
+                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-400 text-amber-900">SANDBOX</span>
+              )}
+            </div>
             <p className="text-white/60 text-xs">{formatCurrency(total)}</p>
           </div>
           {status === 'waiting' && (
