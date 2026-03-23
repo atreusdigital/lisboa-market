@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import type { Profile, Branch, ActivityLog } from '@/types'
+import type { Profile, Branch, ActivityLog, UserRole } from '@/types'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -43,7 +43,7 @@ interface NewUserForm {
   full_name: string
   username: string
   password: string
-  role: string
+  role: UserRole
   branch_id: string
 }
 
@@ -55,7 +55,7 @@ export function UsersModule({ users: initial, branches, activityLog, currentProf
   const [showPassword, setShowPassword] = useState(false)
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState<NewUserForm>({ full_name: '', username: '', password: '', role: 'empleado', branch_id: '' })
-  const [editRole, setEditRole] = useState('')
+  const [editRole, setEditRole] = useState<UserRole>('empleado')
   const [editBranch, setEditBranch] = useState('')
   const supabase = createClient()
 
@@ -67,7 +67,7 @@ export function UsersModule({ users: initial, branches, activityLog, currentProf
 
   function openEdit(u: Profile) {
     setEditingUser(u)
-    setEditRole(u.role)
+    setEditRole(u.role as UserRole)
     setEditBranch(u.branch_id ?? '')
     setShowEditDialog(true)
   }
@@ -281,7 +281,7 @@ export function UsersModule({ users: initial, branches, activityLog, currentProf
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs font-medium">Rol</Label>
-              <Select value={form.role} onValueChange={v => setForm(f => ({ ...f, role: v }))}>
+              <Select value={form.role} onValueChange={v => setForm(f => ({ ...f, role: v as UserRole }))}>
                 <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {currentProfile.role === 'director' && <SelectItem value="director">Dueño</SelectItem>}
@@ -319,7 +319,7 @@ export function UsersModule({ users: initial, branches, activityLog, currentProf
           <div className="space-y-4 pt-2">
             <div className="space-y-1.5">
               <Label className="text-xs font-medium">Rol</Label>
-              <Select value={editRole} onValueChange={v => setEditRole(v)}>
+              <Select value={editRole} onValueChange={v => setEditRole(v as UserRole)}>
                 <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {currentProfile.role === 'director' && <SelectItem value="director">Dueño</SelectItem>}
