@@ -73,15 +73,17 @@ export function ProductDialog({ open, onClose, branches, profileBranchId, isDire
     setLoading(true)
 
     try {
-      const productData = {
+      const productData: Record<string, unknown> = {
         name: form.name,
         category: form.category,
         barcode: form.barcode || null,
         cost_price: parseFloat(form.cost_price) || 0,
         sell_price: parseFloat(form.sell_price),
         is_star: isStar,
-        bulk_quantity: bulkMode ? parseInt(form.bulk_quantity) || 1 : 1,
-        bulk_cost: bulkMode && form.bulk_cost ? parseFloat(form.bulk_cost) : null,
+        ...(bulkMode && {
+          bulk_quantity: parseInt(form.bulk_quantity) || 1,
+          bulk_cost: form.bulk_cost ? parseFloat(form.bulk_cost) : null,
+        }),
       }
 
       if (isEditing && editProduct) {
@@ -157,8 +159,9 @@ export function ProductDialog({ open, onClose, branches, profileBranchId, isDire
 
       onClose()
       window.location.reload()
-    } catch (err) {
-      toast.error('Error al guardar el producto')
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : (err as { message?: string })?.message ?? 'Error desconocido'
+      toast.error(`Error al guardar: ${msg}`)
       console.error(err)
     } finally {
       setLoading(false)
@@ -317,7 +320,7 @@ export function ProductDialog({ open, onClose, branches, profileBranchId, isDire
               <Label className="text-xs">Sucursal</Label>
               <Select value={form.branch_id} onValueChange={(v) => v && update('branch_id', v)}>
                 <SelectTrigger className="h-9 text-sm">
-                  <SelectValue placeholder="Seleccionar sucursal" />
+                  <span>{branches.find(b => b.id === form.branch_id)?.name ?? 'Seleccionar sucursal'}</span>
                 </SelectTrigger>
                 <SelectContent>
                   {branches.map((b) => (
