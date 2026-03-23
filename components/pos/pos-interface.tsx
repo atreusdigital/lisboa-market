@@ -128,6 +128,16 @@ export function POSInterface({ stockItems, branches, profile }: Props) {
           .from('stock')
           .update({ quantity: stockItem.quantity - cartItem.quantity })
           .eq('id', stockItem.id)
+
+        // Registrar movimiento de stock por venta
+        await supabase.from('stock_movements').insert({
+          product_id: cartItem.product.id,
+          branch_id: selectedBranchId,
+          user_id: profile.id,
+          type: 'sale',
+          quantity: -cartItem.quantity,
+          notes: `Venta #${sale.id.slice(0, 8).toUpperCase()}`,
+        })
       }
     }
 
