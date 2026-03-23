@@ -286,7 +286,9 @@ export function NewOrderDialog({ open, onClose, suppliers, branches, products, p
                 <Label className="text-xs">Proveedor *</Label>
                 <Select value={supplierId} onValueChange={(v) => v && setSupplierId(v)}>
                   <SelectTrigger className="h-9 text-sm">
-                    <SelectValue placeholder="Seleccionar" />
+                    <span className="truncate">
+                      {supplierId ? (suppliers.find((s) => s.id === supplierId)?.name ?? 'Seleccionar') : 'Seleccionar'}
+                    </span>
                   </SelectTrigger>
                   <SelectContent>
                     {suppliers.map((s) => (
@@ -300,7 +302,9 @@ export function NewOrderDialog({ open, onClose, suppliers, branches, products, p
                 <Label className="text-xs">Sucursal *</Label>
                 <Select value={branchId} onValueChange={(v) => v && setBranchId(v)} disabled={profile.role !== 'director'}>
                   <SelectTrigger className="h-9 text-sm">
-                    <SelectValue placeholder="Seleccionar" />
+                    <span className="truncate">
+                      {branchId ? (branches.find((b) => b.id === branchId)?.name ?? 'Seleccionar') : 'Seleccionar'}
+                    </span>
                   </SelectTrigger>
                   <SelectContent>
                     {branches.map((b) => (

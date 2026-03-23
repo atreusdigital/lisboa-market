@@ -54,13 +54,13 @@ export default async function DashboardPage() {
   let stockQuery = supabase
     .from('stock')
     .select('id, quantity, min_quantity')
-    .filter('quantity', 'lte', 'min_quantity')
 
   if (profile.role !== 'director' && profile.branch_id) {
     stockQuery = stockQuery.eq('branch_id', profile.branch_id)
   }
 
-  const { data: lowStockItems } = await stockQuery
+  const { data: allStockItems } = await stockQuery
+  const lowStockItems = allStockItems?.filter((s) => s.quantity <= s.min_quantity) ?? []
 
   // Pedidos pendientes
   let ordersQuery = supabase
