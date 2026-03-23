@@ -36,9 +36,14 @@ export default async function RadarPage() {
     productSales[p.name].revenue += item.quantity * item.unit_price
   })
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const gP = (s: any) => s.product as { name: string; is_star?: boolean } | null
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const gB = (s: any) => s.branch as { name: string } | null
+
   const topProducts = Object.values(productSales).sort((a, b) => b.qty - a.qty).slice(0, 10)
   const stagnantStock = stockItems?.filter((s) => {
-    const sold = productSales[(s.product as { name: string })?.name]
+    const sold = productSales[gP(s)?.name ?? '']
     return !sold && s.quantity > 0
   }) ?? []
 
@@ -50,15 +55,13 @@ ${topProducts.map((p, i) => `${i + 1}. ${p.name}${p.is_star ? ' ⭐' : ''}: ${p.
 
 PRODUCTOS ESTANCADOS (sin ventas en 7 días, con stock):
 ${stagnantStock.slice(0, 10).map((s) => {
-  const p = s.product as { name: string; is_star?: boolean }
-  const b = s.branch as { name: string }
+  const p = gP(s); const b = gB(s)
   return `- ${p?.name}${p?.is_star ? ' ⭐' : ''}: ${s.quantity} unidades — ${b?.name}`
 }).join('\n') || 'Ninguno'}
 
 STOCK BAJO:
 ${stockItems?.filter((s) => s.quantity <= s.min_quantity).map((s) => {
-  const p = s.product as { name: string; is_star?: boolean }
-  const b = s.branch as { name: string }
+  const p = gP(s); const b = gB(s)
   return `- ${p?.name}${p?.is_star ? ' ⭐ ESTRELLA' : ''}: ${s.quantity}/${s.min_quantity} — ${b?.name}`
 }).join('\n') || 'Ninguno'}
 `

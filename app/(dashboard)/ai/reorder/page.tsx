@@ -42,13 +42,17 @@ export default async function ReorderPage() {
     if (name && supplier && !productSupplier[name]) productSupplier[name] = supplier
   })
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const gP = (s: any) => s.product as { name: string; cost_price?: number; is_star?: boolean } | null
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const gB = (s: any) => s.branch as { name: string } | null
+
   const context = `
 STOCK ACTUAL Y NECESIDADES:
 ${stockItems?.map((s) => {
-  const p = s.product as { id: string; name: string; cost_price: number; is_star?: boolean }
-  const b = s.branch as { name: string }
-  const velocity = salesVelocity[p?.name] ?? 0
-  const supplier = productSupplier[p?.name] ?? 'Sin proveedor asignado'
+  const p = gP(s); const b = gB(s)
+  const velocity = salesVelocity[p?.name ?? ''] ?? 0
+  const supplier = productSupplier[p?.name ?? ''] ?? 'Sin proveedor asignado'
   const needsReorder = s.quantity <= s.min_quantity
   return `- ${p?.name}${p?.is_star ? ' ⭐' : ''}: stock ${s.quantity} (mín ${s.min_quantity}) | vendido/semana: ${velocity} | ${b?.name} | Proveedor: ${supplier}${needsReorder ? ' ⚠️ REPONER' : ''} | costo: $${p?.cost_price ?? 0}`
 }).join('\n') ?? ''}

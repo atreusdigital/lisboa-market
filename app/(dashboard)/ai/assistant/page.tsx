@@ -32,20 +32,29 @@ export default async function AssistantPage() {
   ])
 
   const totalToday = todaySales?.reduce((s, v) => s + v.total, 0) ?? 0
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const getP = (s: any) => s.product as { name: string; is_star?: boolean } | null
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const getB = (s: any) => s.branch as { name: string } | null
+
   const lowStock = stockItems?.filter((s) => s.quantity <= s.min_quantity) ?? []
-  const starLow = lowStock.filter((s) => (s.product as { is_star?: boolean })?.is_star)
+  const starLow = lowStock.filter((s) => getP(s)?.is_star)
 
   const context = `
 VENTAS HOY: ${todaySales?.length ?? 0} ventas — Total: $${totalToday.toLocaleString('es-AR')}
 STOCK BAJO: ${lowStock.length} productos bajo mínimo
-PRODUCTOS ESTRELLA CON STOCK BAJO: ${starLow.length} — ${starLow.map((s) => (s.product as { name: string })?.name).join(', ') || 'ninguno'}
+PRODUCTOS ESTRELLA CON STOCK BAJO: ${starLow.length} — ${starLow.map((s) => getP(s)?.name).join(', ') || 'ninguno'}
 ALERTAS ACTIVAS: ${alerts?.length ?? 0}
 ${alerts?.map((a) => `- ${a.message}`).join('\n') ?? ''}
-ÚLTIMOS PEDIDOS: ${orders?.map((o) => `${(o.supplier as { name: string })?.name} $${o.total} (${o.status})`).join(', ') ?? 'ninguno'}
+ÚLTIMOS PEDIDOS: ${orders?.map((o) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const sup = (o as any).supplier as { name: string } | null
+  return `${sup?.name} $${o.total} (${o.status})`
+}).join(', ') ?? 'ninguno'}
 STOCK ACTUAL (primeros 20):
 ${stockItems?.slice(0, 20).map((s) => {
-  const p = s.product as { name: string; is_star?: boolean }
-  const b = s.branch as { name: string }
+  const p = getP(s)
+  const b = getB(s)
   return `- ${p?.name}${p?.is_star ? ' ⭐' : ''}: ${s.quantity} uds (mín ${s.min_quantity}) — ${b?.name}`
 }).join('\n') ?? ''}
 `
