@@ -11,7 +11,6 @@ import {
   Truck,
   Bell,
   BarChart3,
-  Users,
   LogOut,
   TrendingUp,
   ClipboardList,
@@ -28,7 +27,6 @@ const navItems = [
   { href: '/suppliers', label: 'Proveedores', icon: Truck, roles: ['director', 'admin'] },
   { href: '/alerts', label: 'Alertas', icon: Bell, roles: ['director', 'admin'] },
   { href: '/analytics', label: 'Reportes', icon: BarChart3, roles: ['director', 'admin'] },
-  { href: '/users', label: 'Usuarios', icon: Users, roles: ['director'] },
 ]
 
 const aiItems = [

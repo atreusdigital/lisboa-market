@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Search, Plus, AlertTriangle, Camera, History } from 'lucide-react'
+import { Search, Plus, AlertTriangle, Camera, History, Pencil } from 'lucide-react'
 import { ProductDialog } from './product-dialog'
 import { ScanDeliveryDialog } from './scan-delivery-dialog'
 import { StockMovementsDialog } from './stock-movements-dialog'
@@ -28,6 +28,7 @@ export function StockModule({ stockItems, branches, products, profile }: Props) 
   const [showProductDialog, setShowProductDialog] = useState(false)
   const [showScanDialog, setShowScanDialog] = useState(false)
   const [movementsItem, setMovementsItem] = useState<Stock | null>(null)
+  const [editItem, setEditItem] = useState<Stock | null>(null)
   const [starFilter, setStarFilter] = useState(false)
   const supabase = createClient()
 
@@ -104,7 +105,7 @@ export function StockModule({ stockItems, branches, products, profile }: Props) 
         {profile.role === 'director' && (
           <Select value={branchFilter} onValueChange={(v) => v && setBranchFilter(v)}>
             <SelectTrigger className="h-8 text-xs w-40">
-              <SelectValue placeholder="Sucursal" />
+              <span>{branchFilter === 'all' ? 'Todas las sucursales' : (branches.find(b => b.id === branchFilter)?.name ?? 'Sucursal')}</span>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todas las sucursales</SelectItem>
@@ -117,7 +118,7 @@ export function StockModule({ stockItems, branches, products, profile }: Props) 
 
         <Select value={statusFilter} onValueChange={(v) => v && setStatusFilter(v)}>
           <SelectTrigger className="h-8 text-xs w-36">
-            <SelectValue placeholder="Estado" />
+            <span>{statusFilter === 'all' ? 'Todos' : statusFilter === 'low' ? 'Stock bajo' : 'Stock ok'}</span>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todos</SelectItem>
@@ -207,13 +208,24 @@ export function StockModule({ stockItems, branches, products, profile }: Props) 
                         </Badge>
                       </td>
                       <td className="px-3 md:px-4 py-3 text-right">
-                        <button
-                          onClick={() => setMovementsItem(item)}
-                          className="p-1.5 rounded hover:bg-neutral-100 transition-colors text-muted-foreground hover:text-foreground"
-                          title="Ver movimientos"
-                        >
-                          <History className="w-3.5 h-3.5" />
-                        </button>
+                        <div className="flex items-center justify-end gap-1">
+                          {isAdmin && (
+                            <button
+                              onClick={() => setEditItem(item)}
+                              className="p-1.5 rounded hover:bg-neutral-100 transition-colors text-muted-foreground hover:text-foreground"
+                              title="Editar producto"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                          <button
+                            onClick={() => setMovementsItem(item)}
+                            className="p-1.5 rounded hover:bg-neutral-100 transition-colors text-muted-foreground hover:text-foreground"
+                            title="Ver movimientos"
+                          >
+                            <History className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   )
@@ -231,6 +243,18 @@ export function StockModule({ stockItems, branches, products, profile }: Props) 
           onClose={() => setShowProductDialog(false)}
           profileBranchId={profile.branch_id}
           isDirector={profile.role === 'director'}
+        />
+      )}
+
+      {editItem && (
+        <ProductDialog
+          branches={branches}
+          open={!!editItem}
+          onClose={() => setEditItem(null)}
+          profileBranchId={profile.branch_id}
+          isDirector={profile.role === 'director'}
+          editProduct={editItem.product}
+          editStockItem={editItem}
         />
       )}
 

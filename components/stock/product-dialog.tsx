@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
-import type { Branch } from '@/types'
+import type { Branch, Product, Stock } from '@/types'
 
 const CATEGORIES = [
   'Bebidas', 'Snacks', 'Lácteos', 'Fiambres', 'Conservas', 'Limpieza',
@@ -21,21 +21,25 @@ interface Props {
   branches: Branch[]
   profileBranchId: string | null
   isDirector: boolean
+  // Modo edición
+  editProduct?: Product
+  editStockItem?: Stock
 }
 
-export function ProductDialog({ open, onClose, branches, profileBranchId, isDirector }: Props) {
+export function ProductDialog({ open, onClose, branches, profileBranchId, isDirector, editProduct, editStockItem }: Props) {
   const supabase = createClient()
+  const isEditing = !!editProduct
   const [loading, setLoading] = useState(false)
-  const [isStar, setIsStar] = useState(false)
+  const [isStar, setIsStar] = useState(editProduct?.is_star ?? false)
   const [form, setForm] = useState({
-    name: '',
-    category: 'General',
-    barcode: '',
-    cost_price: '',
-    sell_price: '',
-    branch_id: profileBranchId ?? '',
-    quantity: '0',
-    min_quantity: '5',
+    name: editProduct?.name ?? '',
+    category: editProduct?.category ?? 'General',
+    barcode: editProduct?.barcode ?? '',
+    cost_price: editProduct?.cost_price ? String(editProduct.cost_price) : '',
+    sell_price: editProduct?.sell_price ? String(editProduct.sell_price) : '',
+    branch_id: editStockItem?.branch_id ?? profileBranchId ?? '',
+    quantity: editStockItem?.quantity !== undefined ? String(editStockItem.quantity) : '0',
+    min_quantity: editStockItem?.min_quantity !== undefined ? String(editStockItem.min_quantity) : '5',
   })
 
   function update(key: string, value: string) {
@@ -51,64 +55,85 @@ export function ProductDialog({ open, onClose, branches, profileBranchId, isDire
     setLoading(true)
 
     try {
-      // 1. Crear o buscar producto
-      const { data: existingProduct } = await supabase
-        .from('products')
-        .select('id')
-        .eq('name', form.name)
-        .maybeSingle()
-
-      let productId: string
-
-      if (existingProduct) {
-        productId = existingProduct.id
-        // Actualizar precios
+      if (isEditing && editProduct) {
+        // Actualizar producto existente
         await supabase.from('products').update({
-          cost_price: parseFloat(form.cost_price) || 0,
-          sell_price: parseFloat(form.sell_price),
-          category: form.category,
-          barcode: form.barcode || null,
-        }).eq('id', productId)
-      } else {
-        const { data: newProduct, error } = await supabase.from('products').insert({
           name: form.name,
           category: form.category,
           barcode: form.barcode || null,
           cost_price: parseFloat(form.cost_price) || 0,
           sell_price: parseFloat(form.sell_price),
           is_star: isStar,
-        }).select().single()
+        }).eq('id', editProduct.id)
 
-        if (error) throw error
-        productId = newProduct.id
-      }
+        // Actualizar stock
+        if (editStockItem) {
+          await supabase.from('stock').update({
+            quantity: parseInt(form.quantity),
+            min_quantity: parseInt(form.min_quantity),
+          }).eq('id', editStockItem.id)
+        }
 
-      // 2. Crear o actualizar stock
-      const branchId = isDirector ? form.branch_id : profileBranchId
-      if (!branchId) throw new Error('No hay sucursal seleccionada')
-
-      const { data: existingStock } = await supabase
-        .from('stock')
-        .select('id')
-        .eq('product_id', productId)
-        .eq('branch_id', branchId)
-        .maybeSingle()
-
-      if (existingStock) {
-        await supabase.from('stock').update({
-          quantity: parseInt(form.quantity),
-          min_quantity: parseInt(form.min_quantity),
-        }).eq('id', existingStock.id)
+        toast.success('Producto actualizado')
       } else {
-        await supabase.from('stock').insert({
-          product_id: productId,
-          branch_id: branchId,
-          quantity: parseInt(form.quantity),
-          min_quantity: parseInt(form.min_quantity),
-        })
+        // Crear nuevo producto
+        const { data: existingProduct } = await supabase
+          .from('products')
+          .select('id')
+          .eq('name', form.name)
+          .maybeSingle()
+
+        let productId: string
+
+        if (existingProduct) {
+          productId = existingProduct.id
+          await supabase.from('products').update({
+            cost_price: parseFloat(form.cost_price) || 0,
+            sell_price: parseFloat(form.sell_price),
+            category: form.category,
+            barcode: form.barcode || null,
+          }).eq('id', productId)
+        } else {
+          const { data: newProduct, error } = await supabase.from('products').insert({
+            name: form.name,
+            category: form.category,
+            barcode: form.barcode || null,
+            cost_price: parseFloat(form.cost_price) || 0,
+            sell_price: parseFloat(form.sell_price),
+            is_star: isStar,
+          }).select().single()
+
+          if (error) throw error
+          productId = newProduct.id
+        }
+
+        const branchId = isDirector ? form.branch_id : profileBranchId
+        if (!branchId) throw new Error('No hay sucursal seleccionada')
+
+        const { data: existingStock } = await supabase
+          .from('stock')
+          .select('id')
+          .eq('product_id', productId)
+          .eq('branch_id', branchId)
+          .maybeSingle()
+
+        if (existingStock) {
+          await supabase.from('stock').update({
+            quantity: parseInt(form.quantity),
+            min_quantity: parseInt(form.min_quantity),
+          }).eq('id', existingStock.id)
+        } else {
+          await supabase.from('stock').insert({
+            product_id: productId,
+            branch_id: branchId,
+            quantity: parseInt(form.quantity),
+            min_quantity: parseInt(form.min_quantity),
+          })
+        }
+
+        toast.success('Producto guardado correctamente')
       }
 
-      toast.success('Producto guardado correctamente')
       onClose()
       window.location.reload()
     } catch (err) {
@@ -123,7 +148,9 @@ export function ProductDialog({ open, onClose, branches, profileBranchId, isDire
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle className="text-base font-semibold">Nuevo producto</DialogTitle>
+          <DialogTitle className="text-base font-semibold">
+            {isEditing ? `Editar producto` : 'Nuevo producto'}
+          </DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 mt-2">
           <div className="space-y-1.5">
@@ -192,7 +219,7 @@ export function ProductDialog({ open, onClose, branches, profileBranchId, isDire
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label className="text-xs">Stock inicial</Label>
+              <Label className="text-xs">Stock {isEditing ? 'actual' : 'inicial'}</Label>
               <Input
                 type="number"
                 value={form.quantity}
@@ -213,7 +240,7 @@ export function ProductDialog({ open, onClose, branches, profileBranchId, isDire
             </div>
           </div>
 
-          {isDirector && (
+          {isDirector && !isEditing && (
             <div className="space-y-1.5">
               <Label className="text-xs">Sucursal</Label>
               <Select value={form.branch_id} onValueChange={(v) => v && update('branch_id', v)}>
@@ -252,7 +279,7 @@ export function ProductDialog({ open, onClose, branches, profileBranchId, isDire
               Cancelar
             </Button>
             <Button type="submit" className="flex-1 h-9 text-sm bg-black text-white hover:bg-neutral-800" disabled={loading}>
-              {loading ? 'Guardando...' : 'Guardar'}
+              {loading ? 'Guardando...' : isEditing ? 'Guardar cambios' : 'Guardar'}
             </Button>
           </div>
         </form>

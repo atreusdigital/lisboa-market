@@ -23,7 +23,6 @@ const navItems = [
   { href: '/suppliers', label: 'Pedidos', icon: Truck, roles: ['director', 'admin'] },
   { href: '/alerts', label: 'Alertas', icon: Bell, roles: ['director', 'admin'] },
   { href: '/analytics', label: 'Reportes', icon: BarChart3, roles: ['director', 'admin'] },
-  { href: '/users', label: 'Usuarios', icon: Users, roles: ['director'] },
 ]
 
 interface Props {

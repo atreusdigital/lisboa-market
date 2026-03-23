@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { CheckCircle2, XCircle, Copy, ExternalLink, Loader2, RefreshCw } from 'lucide-react'
 import { toast } from 'sonner'
+import { MPLogo } from '@/components/ui/mp-logo'
 
 const LISBOA_GREEN = '#1C2B23'
 
@@ -115,7 +116,10 @@ export function MPPaymentModal({ externalReference, items, total, onSuccess, onC
         <div className="px-6 py-4 border-b border-border flex items-center justify-between" style={{ backgroundColor: LISBOA_GREEN }}>
           <div>
             <div className="flex items-center gap-2">
-              <p className="text-white font-semibold text-sm">Pago con MercadoPago</p>
+              <span className="inline-flex items-center gap-1.5">
+                <span className="text-white font-semibold text-sm">Pago con</span>
+                <span className="bg-white rounded px-1.5 py-0.5 leading-none"><MPLogo size="xs" /></span>
+              </span>
               {isSandbox && (
                 <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-400 text-amber-900">SANDBOX</span>
               )}

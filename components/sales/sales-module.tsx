@@ -6,7 +6,8 @@ import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
-import { Search, ShoppingCart, Banknote, CreditCard } from 'lucide-react'
+import { Search, ShoppingCart, Banknote } from 'lucide-react'
+import { MPBadge } from '@/components/ui/mp-logo'
 import { cn } from '@/lib/utils'
 import Link from 'next/link'
 
@@ -85,13 +86,13 @@ export function SalesModule({ sales, branches, profile }: Props) {
           </Select>
         )}
         <Select value={methodFilter} onValueChange={(v) => v && setMethodFilter(v)}>
-          <SelectTrigger className="h-8 text-xs w-36">
-            <span>{methodFilter === 'all' ? 'Todos los pagos' : methodFilter === 'efectivo' ? 'Efectivo' : 'MercadoPago'}</span>
+          <SelectTrigger className="h-8 text-xs w-40">
+            <span>{methodFilter === 'all' ? 'Todos los pagos' : methodFilter === 'efectivo' ? 'Efectivo' : 'Mercado Pago'}</span>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todos los pagos</SelectItem>
             <SelectItem value="efectivo">Efectivo</SelectItem>
-            <SelectItem value="mercadopago">MercadoPago</SelectItem>
+            <SelectItem value="mercadopago">Mercado Pago</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -161,9 +162,7 @@ export function SalesModule({ sales, branches, profile }: Props) {
                             <Banknote className="w-3 h-3" /><span className="hidden sm:inline">Efectivo</span>
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1 text-xs text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full">
-                            <CreditCard className="w-3 h-3" /><span className="hidden sm:inline">MercadoPago</span>
-                          </span>
+                          <MPBadge />
                         )}
                       </Link>
                     </td>

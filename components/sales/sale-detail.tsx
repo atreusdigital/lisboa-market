@@ -3,7 +3,8 @@
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Banknote, CreditCard, ArrowLeft, Star } from 'lucide-react'
+import { Banknote, ArrowLeft } from 'lucide-react'
+import { MPBadge } from '@/components/ui/mp-logo'
 import Link from 'next/link'
 
 interface SaleItem {
@@ -81,9 +82,7 @@ export function SaleDetail({ sale, items }: Props) {
                   <Banknote className="w-3 h-3" /> Efectivo
                 </span>
               ) : (
-                <span className="inline-flex items-center gap-1 text-xs text-blue-700 bg-blue-50 px-2 py-1 rounded-full">
-                  <CreditCard className="w-3 h-3" /> MercadoPago
-                </span>
+                <MPBadge />
               )}
             </div>
           </div>
