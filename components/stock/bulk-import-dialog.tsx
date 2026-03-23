@@ -335,11 +335,11 @@ export function BulkImportDialog({ open, onClose, branches, profileBranchId, isD
               <table className="w-full text-xs">
                 <thead className="sticky top-0 bg-neutral-50 border-b border-border">
                   <tr>
+                    <th className="text-left px-3 py-2 font-medium text-muted-foreground uppercase tracking-wider hidden md:table-cell">Codigo</th>
                     <th className="text-left px-3 py-2 font-medium text-muted-foreground uppercase tracking-wider">Descripcion</th>
                     <th className="text-left px-3 py-2 font-medium text-muted-foreground uppercase tracking-wider hidden sm:table-cell">Categoria</th>
                     <th className="text-right px-3 py-2 font-medium text-muted-foreground uppercase tracking-wider">Mostrador</th>
                     <th className="text-right px-3 py-2 font-medium text-muted-foreground uppercase tracking-wider">PedidosYa</th>
-                    <th className="text-right px-3 py-2 font-medium text-muted-foreground uppercase tracking-wider hidden md:table-cell">Rappi</th>
                     <th className="text-right px-3 py-2 font-medium text-muted-foreground uppercase tracking-wider hidden md:table-cell">Costo</th>
                     <th className="text-right px-3 py-2 font-medium text-muted-foreground uppercase tracking-wider">Stock</th>
                     <th className="px-3 py-2"></th>
@@ -348,11 +348,11 @@ export function BulkImportDialog({ open, onClose, branches, profileBranchId, isD
                 <tbody className="divide-y divide-border">
                   {rows.map((row, i) => (
                     <tr key={i} className={cn(row.error && 'bg-red-50/50 opacity-60')}>
+                      <td className="px-3 py-2 text-muted-foreground tabular-nums text-[10px] hidden md:table-cell">{row.barcode || '—'}</td>
                       <td className="px-3 py-2 font-medium">{row.name}</td>
                       <td className="px-3 py-2 text-muted-foreground hidden sm:table-cell">{row.category || '—'}</td>
                       <td className="px-3 py-2 text-right tabular-nums font-medium">${row.sell_price.toLocaleString()}</td>
                       <td className="px-3 py-2 text-right tabular-nums">{row.pedidos_ya_price > 0 ? `$${row.pedidos_ya_price.toLocaleString()}` : '—'}</td>
-                      <td className="px-3 py-2 text-right tabular-nums hidden md:table-cell">{row.rappi_price > 0 ? `$${row.rappi_price.toLocaleString()}` : '—'}</td>
                       <td className="px-3 py-2 text-right tabular-nums hidden md:table-cell">{row.cost_price > 0 ? `$${row.cost_price.toLocaleString()}` : '—'}</td>
                       <td className="px-3 py-2 text-right tabular-nums">{row.quantity}</td>
                       <td className="px-3 py-2 text-right">
