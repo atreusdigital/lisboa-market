@@ -15,7 +15,7 @@ export default async function UsersPage() {
     .single()
   if (!profile) redirect('/login')
 
-  if (profile.role !== 'director') redirect('/')
+  if (!['director', 'admin'].includes(profile.role)) redirect('/')
 
   const { data: users } = await supabase
     .from('profiles')

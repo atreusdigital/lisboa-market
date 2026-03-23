@@ -2,30 +2,29 @@
 
 import { useState } from 'react'
 import type { Profile, Branch, ActivityLog } from '@/types'
-import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Label } from '@/components/ui/label'
-import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Card } from '@/components/ui/card'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
-
-const LISBOA_GREEN = '#1C2B23'
+import { Plus, Pencil, Trash2, Eye, EyeOff } from 'lucide-react'
 
 const roleColors: Record<string, string> = {
   director: 'bg-neutral-900 text-white',
-  admin: 'bg-neutral-200 text-neutral-800',
+  admin: 'bg-blue-100 text-blue-800',
   empleado: 'bg-neutral-100 text-neutral-600',
 }
-
 const roleLabels: Record<string, string> = {
   director: 'Dueño',
   admin: 'Encargado',
   empleado: 'Empleado',
 }
-
 const actionLabels: Record<string, string> = {
   sale: 'Registró una venta',
   create_order: 'Creó un pedido',
@@ -40,168 +39,170 @@ interface Props {
   currentProfile: Profile
 }
 
-export function UsersModule({ users, branches, activityLog, currentProfile }: Props) {
-  const [editingUser, setEditingUser] = useState<string | null>(null)
+interface NewUserForm {
+  full_name: string
+  username: string
+  password: string
+  role: string
+  branch_id: string
+}
+
+export function UsersModule({ users: initial, branches, activityLog, currentProfile }: Props) {
+  const [users, setUsers] = useState<Profile[]>(initial)
+  const [showNewDialog, setShowNewDialog] = useState(false)
+  const [showEditDialog, setShowEditDialog] = useState(false)
+  const [editingUser, setEditingUser] = useState<Profile | null>(null)
+  const [showPassword, setShowPassword] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [form, setForm] = useState<NewUserForm>({ full_name: '', username: '', password: '', role: 'empleado', branch_id: '' })
   const [editRole, setEditRole] = useState('')
   const [editBranch, setEditBranch] = useState('')
-  const [editBranchIds, setEditBranchIds] = useState<string[]>([])
   const supabase = createClient()
 
-  function startEdit(user: Profile) {
-    setEditingUser(user.id)
-    setEditRole(user.role)
-    setEditBranch(user.branch_id ?? '')
-    setEditBranchIds(user.branch_ids ?? [])
+  function openNew() {
+    setForm({ full_name: '', username: '', password: '', role: 'empleado', branch_id: '' })
+    setShowPassword(false)
+    setShowNewDialog(true)
   }
 
-  function toggleBranchId(id: string) {
-    setEditBranchIds((prev) =>
-      prev.includes(id) ? prev.filter((b) => b !== id) : [...prev, id]
-    )
+  function openEdit(u: Profile) {
+    setEditingUser(u)
+    setEditRole(u.role)
+    setEditBranch(u.branch_id ?? '')
+    setShowEditDialog(true)
   }
 
-  async function saveEdit(userId: string) {
-    const { error } = await supabase
-      .from('profiles')
-      .update({
-        role: editRole,
-        branch_id: editBranch || null,
-        branch_ids: editBranchIds,
-      })
-      .eq('id', userId)
-
-    if (error) { toast.error('Error al actualizar usuario'); return }
-    toast.success('Usuario actualizado')
-    setEditingUser(null)
+  async function handleCreate() {
+    if (!form.full_name.trim() || !form.username.trim() || !form.password.trim()) {
+      toast.error('Nombre, usuario y contraseña son requeridos')
+      return
+    }
+    if (form.password.length < 4) { toast.error('La contraseña debe tener al menos 4 caracteres'); return }
+    setSaving(true)
+    const res = await fetch('/api/admin/create-user', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(form),
+    })
+    const data = await res.json()
+    if (!res.ok) { toast.error(data.error ?? 'Error al crear usuario'); setSaving(false); return }
+    toast.success('Usuario creado correctamente')
+    setSaving(false)
+    setShowNewDialog(false)
     window.location.reload()
   }
 
-  const directors = users.filter((u) => u.role === 'director')
-  const admins = users.filter((u) => u.role === 'admin')
-  const empleados = users.filter((u) => u.role === 'empleado')
+  async function handleSaveEdit() {
+    if (!editingUser) return
+    setSaving(true)
+    const { error } = await supabase
+      .from('profiles')
+      .update({ role: editRole, branch_id: editBranch || null })
+      .eq('id', editingUser.id)
+    if (error) { toast.error(error.message); setSaving(false); return }
+    toast.success('Usuario actualizado')
+    setSaving(false)
+    setShowEditDialog(false)
+    window.location.reload()
+  }
 
-  const grouped = [
-    { label: 'Dueños', users: directors },
-    { label: 'Encargados', users: admins },
-    { label: 'Empleados', users: empleados },
-  ]
+  async function handleDelete(u: Profile) {
+    if (!confirm(`¿Borrar al usuario "${u.full_name}"? Esta acción no se puede deshacer.`)) return
+    const res = await fetch('/api/admin/delete-user', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: u.id }),
+    })
+    const data = await res.json()
+    if (!res.ok) { toast.error(data.error ?? 'Error al eliminar'); return }
+    setUsers(users.filter(x => x.id !== u.id))
+    toast.success('Usuario eliminado')
+  }
+
+  const isAdmin = ['director', 'admin'].includes(currentProfile.role)
 
   return (
     <div className="space-y-5">
-      <div>
-        <h2 className="text-lg font-semibold">Usuarios</h2>
-        <p className="text-sm text-muted-foreground">{users.length} usuarios registrados</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-semibold">Usuarios</h2>
+          <p className="text-sm text-muted-foreground">{users.length} usuarios registrados</p>
+        </div>
+        {isAdmin && (
+          <Button size="sm" onClick={openNew} className="h-8 text-xs gap-1.5 bg-black text-white hover:bg-neutral-800">
+            <Plus className="w-3.5 h-3.5" /> Nuevo usuario
+          </Button>
+        )}
       </div>
 
       <Tabs defaultValue="users">
         <TabsList className="h-8">
           <TabsTrigger value="users" className="text-xs h-7">Usuarios</TabsTrigger>
-          <TabsTrigger value="activity" className="text-xs h-7">Historial de actividad</TabsTrigger>
+          <TabsTrigger value="activity" className="text-xs h-7">Historial</TabsTrigger>
         </TabsList>
 
-        {/* USUARIOS */}
-        <TabsContent value="users" className="mt-4 space-y-5">
-          {grouped.map(({ label, users: groupUsers }) => (
-            groupUsers.length === 0 ? null : (
-              <div key={label}>
-                <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">{label}</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-                  {groupUsers.map((user) => (
-                    <Card key={user.id} className="p-4 border-border bg-white">
-                      <div className="flex items-start gap-3">
-                        <div
-                          className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 text-white font-semibold text-sm"
-                          style={{ backgroundColor: LISBOA_GREEN }}
-                        >
-                          {user.full_name.charAt(0).toUpperCase()}
+        {/* TABLA DE USUARIOS */}
+        <TabsContent value="users" className="mt-4">
+          <div className="border border-border rounded-lg overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border bg-neutral-50">
+                  <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Nombre</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Usuario</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Rol</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider hidden md:table-cell">Sucursal</th>
+                  {isAdmin && <th className="text-center px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Editar</th>}
+                  {isAdmin && <th className="text-center px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Borrar</th>}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {users.map((u) => (
+                  <tr key={u.id} className="hover:bg-neutral-50 transition-colors">
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-7 h-7 rounded-full bg-[#1C2B23] flex items-center justify-center shrink-0">
+                          <span className="text-[11px] font-semibold text-white">{u.full_name.charAt(0).toUpperCase()}</span>
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate">{user.full_name}</p>
-                          <p className="text-xs text-muted-foreground truncate">
-                            {user.role === 'director'
-                              ? (user.branch_ids && user.branch_ids.length > 0
-                                  ? `${user.branch_ids.length} sucursales`
-                                  : 'Todas las sucursales')
-                              : (user.branch?.name ?? 'Sin sucursal')}
-                          </p>
-                          <Badge className={cn('text-[10px] border-0 mt-1', roleColors[user.role])}>
-                            {roleLabels[user.role]}
-                          </Badge>
-                        </div>
-                        {user.id !== currentProfile.id && (
-                          <button
-                            onClick={() => editingUser === user.id ? setEditingUser(null) : startEdit(user)}
-                            className="text-xs text-muted-foreground hover:text-foreground transition-colors shrink-0"
-                          >
-                            {editingUser === user.id ? 'Cancelar' : 'Editar'}
-                          </button>
+                        <span className="text-sm font-medium">{u.full_name}</span>
+                        {u.id === currentProfile.id && (
+                          <span className="text-[10px] text-muted-foreground">(vos)</span>
                         )}
                       </div>
-
-                      {editingUser === user.id && (
-                        <div className="mt-3 pt-3 border-t border-border space-y-3">
-                          <div className="space-y-1">
-                            <Label className="text-xs">Rol</Label>
-                            <Select value={editRole} onValueChange={(v) => v && setEditRole(v)}>
-                              <SelectTrigger className="h-8 text-xs">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="director">Dueño</SelectItem>
-                                <SelectItem value="admin">Encargado</SelectItem>
-                                <SelectItem value="empleado">Empleado</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-
-                          <div className="space-y-1">
-                            <Label className="text-xs">Sucursal principal</Label>
-                            <Select value={editBranch} onValueChange={(v) => setEditBranch(v ?? '')}>
-                              <SelectTrigger className="h-8 text-xs">
-                                <SelectValue placeholder="Sin sucursal" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="">Sin sucursal</SelectItem>
-                                {branches.map((b) => (
-                                  <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-
-                          <div className="space-y-1.5">
-                            <Label className="text-xs">Acceso a sucursales</Label>
-                            <div className="flex flex-col gap-1.5">
-                              {branches.map((b) => (
-                                <label key={b.id} className="flex items-center gap-2 cursor-pointer">
-                                  <input
-                                    type="checkbox"
-                                    checked={editBranchIds.includes(b.id)}
-                                    onChange={() => toggleBranchId(b.id)}
-                                    className="rounded border-border"
-                                  />
-                                  <span className="text-xs">{b.name}</span>
-                                </label>
-                              ))}
-                            </div>
-                          </div>
-
-                          <Button
-                            size="sm"
-                            className="w-full h-7 text-xs text-white"
-                            style={{ backgroundColor: LISBOA_GREEN }}
-                            onClick={() => saveEdit(user.id)}
-                          >
-                            Guardar cambios
-                          </Button>
-                        </div>
-                      )}
-                    </Card>
-                  ))}
-                </div>
-              </div>
-            )
-          ))}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-muted-foreground font-mono">
+                      {(u as any).username ?? '—'}
+                    </td>
+                    <td className="px-4 py-3">
+                      <Badge className={cn('text-[10px] border-0', roleColors[u.role])}>
+                        {roleLabels[u.role]}
+                      </Badge>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-muted-foreground hidden md:table-cell">
+                      {u.role === 'director' ? 'Todas' : (u.branch?.name ?? '—')}
+                    </td>
+                    {isAdmin && (
+                      <td className="px-4 py-3 text-center">
+                        {u.id !== currentProfile.id && (
+                          <button onClick={() => openEdit(u)} className="text-[10px] px-2.5 py-1 rounded bg-neutral-800 text-white hover:bg-black transition-colors font-medium">
+                            Editar
+                          </button>
+                        )}
+                      </td>
+                    )}
+                    {isAdmin && (
+                      <td className="px-4 py-3 text-center">
+                        {u.id !== currentProfile.id && (
+                          <button onClick={() => handleDelete(u)} className="text-[10px] px-2.5 py-1 rounded bg-red-600 text-white hover:bg-red-700 transition-colors font-medium">
+                            Borrar
+                          </button>
+                        )}
+                      </td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </TabsContent>
 
         {/* HISTORIAL */}
@@ -218,35 +219,24 @@ export function UsersModule({ users, branches, activityLog, currentProfile }: Pr
                 </thead>
                 <tbody className="divide-y divide-border">
                   {activityLog.length === 0 ? (
-                    <tr>
-                      <td colSpan={3} className="px-4 py-10 text-center text-sm text-muted-foreground">
-                        No hay actividad registrada
-                      </td>
-                    </tr>
+                    <tr><td colSpan={3} className="px-4 py-10 text-center text-sm text-muted-foreground">No hay actividad registrada</td></tr>
                   ) : (
                     activityLog.map((log) => (
                       <tr key={log.id} className="hover:bg-neutral-50 transition-colors">
                         <td className="px-4 py-3">
-                          <div>
-                            <p className="text-xs font-medium">{(log.user as Profile)?.full_name ?? 'Desconocido'}</p>
-                            <Badge className={cn('text-[10px] border-0 mt-0.5', roleColors[(log.user as Profile)?.role ?? 'empleado'])}>
-                              {roleLabels[(log.user as Profile)?.role ?? 'empleado']}
-                            </Badge>
-                          </div>
+                          <p className="text-xs font-medium">{(log.user as Profile)?.full_name ?? 'Desconocido'}</p>
+                          <Badge className={cn('text-[10px] border-0 mt-0.5', roleColors[(log.user as Profile)?.role ?? 'empleado'])}>
+                            {roleLabels[(log.user as Profile)?.role ?? 'empleado']}
+                          </Badge>
                         </td>
                         <td className="px-4 py-3 text-sm text-muted-foreground">
                           {actionLabels[log.action] ?? log.action}
                           {log.metadata && typeof log.metadata === 'object' && 'total' in log.metadata && (
-                            <span className="ml-1 text-xs">
-                              — {new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 0 }).format(log.metadata.total as number)}
-                            </span>
+                            <span className="ml-1 text-xs">— {new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 0 }).format(log.metadata.total as number)}</span>
                           )}
                         </td>
                         <td className="px-4 py-3 text-xs text-muted-foreground tabular-nums">
-                          {new Date(log.created_at).toLocaleDateString('es-AR', {
-                            day: '2-digit', month: '2-digit', year: '2-digit',
-                            hour: '2-digit', minute: '2-digit'
-                          })}
+                          {new Date(log.created_at).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })}
                         </td>
                       </tr>
                     ))
@@ -257,6 +247,106 @@ export function UsersModule({ users, branches, activityLog, currentProfile }: Pr
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Dialog: Nuevo usuario */}
+      <Dialog open={showNewDialog} onOpenChange={setShowNewDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-sm font-semibold">Nuevo usuario</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">Nombre completo *</Label>
+              <Input value={form.full_name} onChange={e => setForm(f => ({ ...f, full_name: e.target.value }))} placeholder="Ej: Martín García" className="h-8 text-sm" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">Usuario (para iniciar sesión) *</Label>
+              <Input value={form.username} onChange={e => setForm(f => ({ ...f, username: e.target.value.toLowerCase().replace(/\s+/g, '') }))} placeholder="Ej: martin" className="h-8 text-sm font-mono" />
+              {form.username && <p className="text-[10px] text-muted-foreground">Iniciará sesión como: <span className="font-mono font-medium">{form.username}</span></p>}
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">Contraseña / PIN *</Label>
+              <div className="relative">
+                <Input
+                  type={showPassword ? 'text' : 'password'}
+                  value={form.password}
+                  onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
+                  placeholder="Mínimo 4 caracteres"
+                  className="h-8 text-sm pr-9"
+                />
+                <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                  {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                </button>
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">Rol</Label>
+              <Select value={form.role} onValueChange={v => setForm(f => ({ ...f, role: v }))}>
+                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {currentProfile.role === 'director' && <SelectItem value="director">Dueño</SelectItem>}
+                  <SelectItem value="admin">Encargado</SelectItem>
+                  <SelectItem value="empleado">Empleado</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">Sucursal</Label>
+              <Select value={form.branch_id} onValueChange={v => setForm(f => ({ ...f, branch_id: v }))}>
+                <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Sin sucursal asignada" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Sin sucursal</SelectItem>
+                  {branches.map(b => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex justify-end gap-2 pt-2 border-t border-border">
+              <Button variant="outline" size="sm" className="text-xs" onClick={() => setShowNewDialog(false)}>Cancelar</Button>
+              <Button size="sm" className="text-xs bg-black text-white hover:bg-neutral-800" onClick={handleCreate} disabled={saving}>
+                {saving ? 'Creando...' : 'Crear usuario'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog: Editar usuario */}
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-sm font-semibold">Editar — {editingUser?.full_name}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">Rol</Label>
+              <Select value={editRole} onValueChange={v => setEditRole(v)}>
+                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {currentProfile.role === 'director' && <SelectItem value="director">Dueño</SelectItem>}
+                  <SelectItem value="admin">Encargado</SelectItem>
+                  <SelectItem value="empleado">Empleado</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">Sucursal</Label>
+              <Select value={editBranch} onValueChange={v => setEditBranch(v)}>
+                <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Sin sucursal" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Sin sucursal</SelectItem>
+                  {branches.map(b => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex justify-end gap-2 pt-2 border-t border-border">
+              <Button variant="outline" size="sm" className="text-xs" onClick={() => setShowEditDialog(false)}>Cancelar</Button>
+              <Button size="sm" className="text-xs bg-black text-white hover:bg-neutral-800" onClick={handleSaveEdit} disabled={saving}>
+                {saving ? 'Guardando...' : 'Guardar'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

@@ -10,7 +10,7 @@ import { WavyBackground } from '@/components/ui/wavy-background'
 import { toast } from 'sonner'
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('')
+  const [login, setLogin] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const router = useRouter()
@@ -20,10 +20,15 @@ export default function LoginPage() {
     e.preventDefault()
     setLoading(true)
 
+    // Acepta usuario (sin @) o email completo
+    const email = login.includes('@')
+      ? login.trim()
+      : `${login.toLowerCase().trim()}@lisboa.internal`
+
     const { error } = await supabase.auth.signInWithPassword({ email, password })
 
     if (error) {
-      toast.error('Email o contraseña incorrectos')
+      toast.error('Usuario o contraseña incorrectos')
       setLoading(false)
       return
     }
@@ -77,15 +82,15 @@ export default function LoginPage() {
 
           <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-1.5">
-              <Label htmlFor="email" className="text-sm font-medium">Email</Label>
+              <Label htmlFor="login" className="text-sm font-medium">Usuario o Email</Label>
               <Input
-                id="email"
-                type="email"
-                placeholder="nombre@lisboamarket.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                id="login"
+                type="text"
+                placeholder="usuario o email"
+                value={login}
+                onChange={(e) => setLogin(e.target.value)}
                 required
-                autoComplete="email"
+                autoComplete="username"
                 className="h-10"
               />
             </div>
