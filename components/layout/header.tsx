@@ -57,15 +57,13 @@ export function Header({ title, alertCount = 0, userId }: HeaderProps) {
       <h1 className="text-sm font-semibold">{title}</h1>
       <div className="flex items-center gap-3">
         <Popover open={open} onOpenChange={(v) => { setOpen(v); if (v) loadAlerts() }}>
-          <PopoverTrigger asChild>
-            <button className="relative p-2 rounded-md hover:bg-neutral-100 transition-colors">
-              <Bell className="w-4 h-4 text-neutral-600" />
-              {alertCount > 0 && (
-                <Badge className="absolute -top-0.5 -right-0.5 h-4 min-w-4 px-1 text-[10px] bg-black text-white border-0 flex items-center justify-center">
-                  {alertCount > 9 ? '9+' : alertCount}
-                </Badge>
-              )}
-            </button>
+          <PopoverTrigger className="relative p-2 rounded-md hover:bg-neutral-100 transition-colors">
+            <Bell className="w-4 h-4 text-neutral-600" />
+            {alertCount > 0 && (
+              <Badge className="absolute -top-0.5 -right-0.5 h-4 min-w-4 px-1 text-[10px] bg-black text-white border-0 flex items-center justify-center">
+                {alertCount > 9 ? '9+' : alertCount}
+              </Badge>
+            )}
           </PopoverTrigger>
           <PopoverContent align="end" className="w-80 p-0">
             <div className="px-4 py-3 border-b border-border">
