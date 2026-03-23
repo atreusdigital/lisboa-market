@@ -255,6 +255,20 @@ export function NewOrderDialog({ open, onClose, suppliers, branches, products, p
         metadata: { supplier: supplier?.name, total, items_count: validItems.length },
       })
 
+      // 8. WhatsApp a Sebastián
+      const itemsList = validItems.map((i) => {
+        const p = products.find((p) => p.id === i.product_id)
+        return `• ${p?.name ?? 'Producto'} x${i.quantity}`
+      }).join('\n')
+
+      fetch('/api/notify/whatsapp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: `🛒 *Nuevo pedido registrado — Lisboa Market*\n\n*Proveedor:* ${supplier?.name}\n*Sucursal:* ${branch?.name}\n*Total:* ${formatCurrency(total)}\n\n*Productos:*\n${itemsList}\n\n⚠️ Generar transferencia ahora.`,
+        }),
+      }).catch(() => {}) // No bloquear si falla
+
       setStep('done')
     } catch (err) {
       toast.error('Error al registrar el pedido')
