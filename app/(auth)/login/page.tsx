@@ -36,12 +36,19 @@ export default function LoginPage() {
       {/* Logo */}
       <div className="mb-10 text-center">
         <div className="inline-flex flex-col items-center gap-3 mb-2">
-          <div
-            className="w-16 h-16 rounded-full flex items-center justify-center"
-            style={{ backgroundColor: '#1C2B23' }}
-          >
-            <span className="text-white font-bold text-2xl tracking-tight">L24</span>
-          </div>
+          <svg viewBox="0 0 120 120" className="w-20 h-20" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="60" cy="60" r="58" fill="#1C2B23" stroke="#1C2B23" strokeWidth="1.5"/>
+            <circle cx="60" cy="60" r="50" fill="none" stroke="white" strokeWidth="0.5" strokeOpacity="0.4"/>
+            <path id="loginTopArc" d="M 60,60 m -42,0 a 42,42 0 1,1 84,0" fill="none"/>
+            <text fontSize="7.5" fill="white" fontFamily="Arial, sans-serif" fontWeight="600" letterSpacing="2.2">
+              <textPath href="#loginTopArc" startOffset="2%">MARKET 24/7 • BEBIDAS • KIOSCO •</textPath>
+            </text>
+            <path id="loginBottomArc" d="M 18,60 a 42,42 0 0,0 84,0" fill="none"/>
+            <text fontSize="7.5" fill="white" fontFamily="Arial, sans-serif" fontWeight="600" letterSpacing="2.2">
+              <textPath href="#loginBottomArc" startOffset="2%">MARKET 24/7 • BEBIDAS • KIOSCO •</textPath>
+            </text>
+            <text x="60" y="67" textAnchor="middle" fontSize="26" fontWeight="700" fill="white" fontFamily="Arial, sans-serif" letterSpacing="-1">L24</text>
+          </svg>
           <div>
             <span className="text-xl font-semibold tracking-tight">Lisboa Market</span>
             <p className="text-xs text-muted-foreground mt-0.5">Market 24/7</p>
@@ -90,7 +97,7 @@ export default function LoginPage() {
       </form>
 
       <p className="mt-6 text-center text-xs text-muted-foreground">
-        Sistema de gestión interno — Lisboa Market © 2025
+        Sistema de gestión interno — Lisboa Market © 2026
       </p>
     </div>
   )
