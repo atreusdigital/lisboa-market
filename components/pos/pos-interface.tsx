@@ -11,6 +11,7 @@ import { Search, Plus, Minus, Trash2, ShoppingCart, Banknote, CreditCard, Packag
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import { MPPaymentModal } from './mp-payment-modal'
 
 const LISBOA_GREEN = '#1C2B23'
 
@@ -26,6 +27,7 @@ export function POSInterface({ stockItems, branches, profile }: Props) {
   const [paymentMethod, setPaymentMethod] = useState<'efectivo' | 'mercadopago'>('efectivo')
   const [loading, setLoading] = useState(false)
   const [mobileTab, setMobileTab] = useState<'products' | 'cart'>('products')
+  const [mpModal, setMpModal] = useState<{ externalReference: string } | null>(null)
   // Directors choose branch; others use their assigned branch
   const [selectedBranchId, setSelectedBranchId] = useState<string>(profile.branch_id ?? '')
   const supabase = createClient()
@@ -91,61 +93,93 @@ export function POSInterface({ stockItems, branches, profile }: Props) {
   const formatCurrency = (n: number) =>
     new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 0 }).format(n)
 
+  async function recordSale(mpPaymentId?: string) {
+    const { data: sale, error: saleError } = await supabase
+      .from('sales')
+      .insert({
+        branch_id: selectedBranchId,
+        user_id: profile.id,
+        total,
+        payment_method: paymentMethod,
+        mp_payment_id: mpPaymentId ?? null,
+      })
+      .select()
+      .single()
+
+    if (saleError) throw saleError
+
+    const items = cart.map((c) => ({
+      sale_id: sale.id,
+      product_id: c.product.id,
+      quantity: c.quantity,
+      unit_price: c.product.sell_price,
+    }))
+
+    const { error: itemsError } = await supabase.from('sale_items').insert(items)
+    if (itemsError) throw itemsError
+
+    for (const cartItem of cart) {
+      const stockItem = stockItems.find(
+        (s) => s.product?.id === cartItem.product.id && s.branch_id === selectedBranchId
+      )
+      if (stockItem) {
+        await supabase
+          .from('stock')
+          .update({ quantity: stockItem.quantity - cartItem.quantity })
+          .eq('id', stockItem.id)
+      }
+    }
+
+    await supabase.from('activity_log').insert({
+      user_id: profile.id,
+      action: 'sale',
+      entity_type: 'sales',
+      entity_id: sale.id,
+      metadata: { total, payment_method: paymentMethod, items_count: cart.length },
+    })
+
+    return sale
+  }
+
   async function handleCheckout() {
     if (cart.length === 0) return
     if (!selectedBranchId) {
       toast.error('Seleccioná una sucursal para continuar')
       return
     }
+
+    // MercadoPago: abrir modal con QR
+    if (paymentMethod === 'mercadopago') {
+      const ref = `pos-${Date.now()}-${profile.id.slice(0, 8)}`
+      setMpModal({ externalReference: ref })
+      return
+    }
+
+    // Efectivo: registrar directo
     setLoading(true)
-
     try {
-      const { data: sale, error: saleError } = await supabase
-        .from('sales')
-        .insert({
-          branch_id: selectedBranchId,
-          user_id: profile.id,
-          total,
-          payment_method: paymentMethod,
-        })
-        .select()
-        .single()
-
-      if (saleError) throw saleError
-
-      const items = cart.map((c) => ({
-        sale_id: sale.id,
-        product_id: c.product.id,
-        quantity: c.quantity,
-        unit_price: c.product.sell_price,
-      }))
-
-      const { error: itemsError } = await supabase.from('sale_items').insert(items)
-      if (itemsError) throw itemsError
-
-      for (const cartItem of cart) {
-        const stockItem = stockItems.find(
-          (s) => s.product?.id === cartItem.product.id && s.branch_id === selectedBranchId
-        )
-        if (stockItem) {
-          await supabase
-            .from('stock')
-            .update({ quantity: stockItem.quantity - cartItem.quantity })
-            .eq('id', stockItem.id)
-        }
-      }
-
-      await supabase.from('activity_log').insert({
-        user_id: profile.id,
-        action: 'sale',
-        entity_type: 'sales',
-        entity_id: sale.id,
-        metadata: { total, payment_method: paymentMethod, items_count: cart.length },
-      })
-
+      await recordSale()
       toast.success(`Venta registrada: ${formatCurrency(total)}`)
       setCart([])
       setSearch('')
+      setMobileTab('products')
+    } catch (err) {
+      toast.error('Error al registrar la venta')
+      console.error(err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleMPSuccess(paymentId: string) {
+    setMpModal(null)
+    setLoading(true)
+    try {
+      await recordSale(paymentId)
+      toast.success(`Pago aprobado — Venta registrada: ${formatCurrency(total)}`)
+      setCart([])
+      setSearch('')
+      setMobileTab('products')
     } catch (err) {
       toast.error('Error al registrar la venta')
       console.error(err)
@@ -155,6 +189,11 @@ export function POSInterface({ stockItems, branches, profile }: Props) {
   }
 
   const selectedBranchName = branches.find((b) => b.id === selectedBranchId)?.name
+  const mpItems = cart.map((c) => ({
+    title: c.product.name,
+    quantity: c.quantity,
+    unit_price: c.product.sell_price,
+  }))
 
   // Componente carrito reutilizable
   const CartPanel = () => (
@@ -370,6 +409,17 @@ export function POSInterface({ stockItems, branches, profile }: Props) {
           <CartPanel />
         </div>
       </div>
+
+      {/* Modal de pago MercadoPago */}
+      {mpModal && (
+        <MPPaymentModal
+          externalReference={mpModal.externalReference}
+          items={mpItems}
+          total={total}
+          onSuccess={handleMPSuccess}
+          onCancel={() => setMpModal(null)}
+        />
+      )}
     </div>
   )
 }
