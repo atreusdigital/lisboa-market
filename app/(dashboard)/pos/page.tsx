@@ -15,18 +15,14 @@ export default async function POSPage() {
     .single()
   if (!profile) redirect('/login')
 
-  // Productos con stock de la sucursal del usuario
-  let stockQuery = supabase
+  const { data: branches } = await supabase.from('branches').select('*').order('name')
+
+  // Traer todo el stock — el POS filtra por sucursal seleccionada en el cliente
+  const { data: stockItems } = await supabase
     .from('stock')
     .select('*, product:products(*)')
     .gt('quantity', 0)
     .order('quantity', { ascending: false })
-
-  if (profile.branch_id) {
-    stockQuery = stockQuery.eq('branch_id', profile.branch_id)
-  }
-
-  const { data: stockItems } = await stockQuery
 
   const { count: alertCount } = await supabase
     .from('alerts')
@@ -39,6 +35,7 @@ export default async function POSPage() {
       <div className="p-6">
         <POSInterface
           stockItems={stockItems ?? []}
+          branches={branches ?? []}
           profile={profile}
         />
       </div>

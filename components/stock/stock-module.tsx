@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import type { Stock, Branch, Product, Profile } from '@/types'
+import { createClient } from '@/lib/supabase/client'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -27,6 +28,13 @@ export function StockModule({ stockItems, branches, products, profile }: Props) 
   const [showProductDialog, setShowProductDialog] = useState(false)
   const [showScanDialog, setShowScanDialog] = useState(false)
   const [movementsItem, setMovementsItem] = useState<Stock | null>(null)
+  const [starFilter, setStarFilter] = useState(false)
+  const supabase = createClient()
+
+  async function toggleStar(productId: string, current: boolean) {
+    await supabase.from('products').update({ is_star: !current }).eq('id', productId)
+    window.location.reload()
+  }
 
   const isAdmin = profile.role !== 'empleado'
 
@@ -39,6 +47,7 @@ export function StockModule({ stockItems, branches, products, profile }: Props) 
       if (branchFilter !== 'all' && item.branch_id !== branchFilter) return false
       if (statusFilter === 'low' && item.quantity > item.min_quantity) return false
       if (statusFilter === 'ok' && item.quantity <= item.min_quantity) return false
+      if (starFilter && !item.product?.is_star) return false
       return true
     })
   }, [stockItems, search, branchFilter, statusFilter])
@@ -116,6 +125,14 @@ export function StockModule({ stockItems, branches, products, profile }: Props) 
             <SelectItem value="ok">Stock ok</SelectItem>
           </SelectContent>
         </Select>
+        <button
+          onClick={() => setStarFilter(!starFilter)}
+          className={`h-8 px-3 rounded-md border text-xs flex items-center gap-1.5 transition-colors ${
+            starFilter ? 'border-amber-300 bg-amber-50 text-amber-700' : 'border-border bg-white text-muted-foreground hover:border-amber-200'
+          }`}
+        >
+          ⭐ Estrella
+        </button>
       </div>
 
       {/* Tabla */}
@@ -124,6 +141,7 @@ export function StockModule({ stockItems, branches, products, profile }: Props) 
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-neutral-50">
+                <th className="px-4 py-3 w-8"></th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Producto</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Categoría</th>
                 {profile.role === 'director' && (
@@ -149,6 +167,15 @@ export function StockModule({ stockItems, branches, products, profile }: Props) 
                   const isCritical = item.quantity === 0
                   return (
                     <tr key={item.id} className={cn('hover:bg-neutral-50 transition-colors', isLow && 'bg-red-50/30')}>
+                      <td className="px-4 py-3 text-center">
+                        <button
+                          onClick={() => toggleStar(item.product_id, item.product?.is_star ?? false)}
+                          className="text-base leading-none opacity-60 hover:opacity-100 transition-opacity"
+                          title={item.product?.is_star ? 'Quitar estrella' : 'Marcar como estrella'}
+                        >
+                          {item.product?.is_star ? '⭐' : '☆'}
+                        </button>
+                      </td>
                       <td className="px-4 py-3 font-medium">
                         <div className="flex items-center gap-2">
                           {isLow && <AlertTriangle className="w-3.5 h-3.5 text-red-500 shrink-0" />}

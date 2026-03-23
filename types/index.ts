@@ -32,6 +32,7 @@ export type Product = {
   cost_price: number
   sell_price: number
   image_url: string | null
+  is_star: boolean
   created_at: string
 }
 

@@ -26,6 +26,7 @@ interface Props {
 export function ProductDialog({ open, onClose, branches, profileBranchId, isDirector }: Props) {
   const supabase = createClient()
   const [loading, setLoading] = useState(false)
+  const [isStar, setIsStar] = useState(false)
   const [form, setForm] = useState({
     name: '',
     category: 'General',
@@ -75,6 +76,7 @@ export function ProductDialog({ open, onClose, branches, profileBranchId, isDire
           barcode: form.barcode || null,
           cost_price: parseFloat(form.cost_price) || 0,
           sell_price: parseFloat(form.sell_price),
+          is_star: isStar,
         }).select().single()
 
         if (error) throw error
@@ -226,6 +228,24 @@ export function ProductDialog({ open, onClose, branches, profileBranchId, isDire
               </Select>
             </div>
           )}
+
+          <div className="flex items-center gap-2 py-1">
+            <button
+              type="button"
+              onClick={() => setIsStar(!isStar)}
+              className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-xs transition-colors w-full ${
+                isStar
+                  ? 'border-amber-300 bg-amber-50 text-amber-700'
+                  : 'border-border bg-white text-muted-foreground hover:border-amber-200 hover:text-amber-600'
+              }`}
+            >
+              <span className="text-base">{isStar ? '⭐' : '☆'}</span>
+              <div className="text-left">
+                <p className="font-medium">Producto estrella</p>
+                <p className="text-[11px] opacity-70">No puede faltar nunca — alerta crítica si baja el mínimo</p>
+              </div>
+            </button>
+          </div>
 
           <div className="flex gap-2 pt-2">
             <Button type="button" variant="outline" className="flex-1 h-9 text-sm" onClick={onClose}>

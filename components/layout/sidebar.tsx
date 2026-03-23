@@ -13,6 +13,9 @@ import {
   BarChart3,
   Users,
   LogOut,
+  Bot,
+  TrendingUp,
+  ClipboardList,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
@@ -25,6 +28,12 @@ const navItems = [
   { href: '/alerts', label: 'Alertas', icon: Bell, roles: ['director', 'admin'] },
   { href: '/analytics', label: 'Reportes', icon: BarChart3, roles: ['director', 'admin'] },
   { href: '/users', label: 'Usuarios', icon: Users, roles: ['director'] },
+]
+
+const aiItems = [
+  { href: '/ai/assistant', label: 'Asistente IA', icon: Bot, roles: ['director', 'admin'] },
+  { href: '/ai/radar', label: 'Radar de ventas', icon: TrendingUp, roles: ['director', 'admin'] },
+  { href: '/ai/reorder', label: 'Plan de reposición', icon: ClipboardList, roles: ['director', 'admin'] },
 ]
 
 const roleLabels: Record<string, string> = {
@@ -42,9 +51,8 @@ export function Sidebar({ profile }: SidebarProps) {
   const router = useRouter()
   const supabase = createClient()
 
-  const visibleItems = navItems.filter((item) =>
-    item.roles.includes(profile.role)
-  )
+  const visibleItems = navItems.filter((item) => item.roles.includes(profile.role))
+  const visibleAiItems = aiItems.filter((item) => item.roles.includes(profile.role))
 
   async function handleLogout() {
     await supabase.auth.signOut()
@@ -78,7 +86,7 @@ export function Sidebar({ profile }: SidebarProps) {
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 px-3 py-4 overflow-y-auto">
+      <nav className="flex-1 px-3 py-4 overflow-y-auto space-y-4">
         <ul className="space-y-0.5">
           {visibleItems.map((item) => {
             const isActive = pathname === item.href
@@ -92,7 +100,6 @@ export function Sidebar({ profile }: SidebarProps) {
                       ? 'bg-white/15 text-white font-medium'
                       : 'text-white/55 hover:bg-white/08 hover:text-white/90'
                   )}
-                  style={isActive ? {} : {}}
                 >
                   <item.icon className="w-4 h-4 shrink-0" />
                   {item.label}
@@ -101,6 +108,33 @@ export function Sidebar({ profile }: SidebarProps) {
             )
           })}
         </ul>
+
+        {visibleAiItems.length > 0 && (
+          <div>
+            <p className="text-[10px] text-white/30 uppercase tracking-wider px-3 mb-1.5">Herramientas IA</p>
+            <ul className="space-y-0.5">
+              {visibleAiItems.map((item) => {
+                const isActive = pathname.startsWith(item.href)
+                return (
+                  <li key={item.href}>
+                    <Link
+                      href={item.href}
+                      className={cn(
+                        'flex items-center gap-2.5 px-3 py-2 rounded-md text-sm transition-colors',
+                        isActive
+                          ? 'bg-white/15 text-white font-medium'
+                          : 'text-white/55 hover:bg-white/08 hover:text-white/90'
+                      )}
+                    >
+                      <item.icon className="w-4 h-4 shrink-0" />
+                      {item.label}
+                    </Link>
+                  </li>
+                )
+              })}
+            </ul>
+          </div>
+        )}
       </nav>
 
       {/* User */}
