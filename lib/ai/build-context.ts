@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { SupabaseClient } from '@supabase/supabase-js'
 
 export async function buildBusinessContext(supabase: SupabaseClient): Promise<string> {
@@ -27,27 +28,25 @@ export async function buildBusinessContext(supabase: SupabaseClient): Promise<st
     supabase.from('suppliers').select('name, contact_name, phone'),
   ])
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const getP = (s: any) => s.product as { name: string; category?: string; is_star?: boolean; sell_price?: number; cost_price?: number } | null
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const getB = (s: any) => s.branch as { name: string } | null
+  const getP = (s: any) => s.product as { name?: string; category?: string; is_star?: boolean; sell_price?: number; cost_price?: number } | null
+  const getB = (s: any) => s.branch as { name?: string } | null
   const fmt = (n: number) => `$${n.toLocaleString('es-AR')}`
 
-  const todayTotal = todaySales?.reduce((s: number, v: { total: number }) => s + v.total, 0) ?? 0
+  const todayTotal = (todaySales as any[])?.reduce((s, v) => s + v.total, 0) ?? 0
   const todayCount = todaySales?.length ?? 0
-  const weekTotal = weekSales?.reduce((s: number, v: { total: number }) => s + v.total, 0) ?? 0
+  const weekTotal = (weekSales as any[])?.reduce((s, v) => s + v.total, 0) ?? 0
   const weekCount = weekSales?.length ?? 0
-  const monthTotal = monthSales?.reduce((s: number, v: { total: number }) => s + v.total, 0) ?? 0
+  const monthTotal = (monthSales as any[])?.reduce((s, v) => s + v.total, 0) ?? 0
   const monthCount = monthSales?.length ?? 0
-  const todayEfectivo = todaySales?.filter((s: { payment_method: string }) => s.payment_method === 'efectivo').reduce((s: number, v: { total: number }) => s + v.total, 0) ?? 0
-  const todayMP = todaySales?.filter((s: { payment_method: string }) => s.payment_method === 'mercadopago').reduce((s: number, v: { total: number }) => s + v.total, 0) ?? 0
+  const todayEfectivo = (todaySales as any[])?.filter(s => s.payment_method === 'efectivo').reduce((s: number, v: any) => s + v.total, 0) ?? 0
+  const todayMP = (todaySales as any[])?.filter(s => s.payment_method === 'mercadopago').reduce((s: number, v: any) => s + v.total, 0) ?? 0
 
-  const lowStock = stockItems?.filter((s: { quantity: number; min_quantity: number }) => s.quantity <= s.min_quantity) ?? []
-  const starLow = lowStock.filter((s: { quantity: number; min_quantity: number }) => getP(s)?.is_star)
-  const zeroStock = stockItems?.filter((s: { quantity: number }) => s.quantity === 0) ?? []
+  const lowStock = (stockItems as any[])?.filter(s => s.quantity <= s.min_quantity) ?? []
+  const starLow = lowStock.filter((s: any) => getP(s)?.is_star)
+  const zeroStock = (stockItems as any[])?.filter(s => s.quantity === 0) ?? []
 
   const productSales: Record<string, { name: string; category?: string; qty: number; revenue: number }> = {}
-  saleItems?.forEach((item: { quantity: number; unit_price: number; product?: { name?: string; category?: string } }) => {
+  ;(saleItems as any[])?.forEach((item: any) => {
     const name = item.product?.name ?? 'Desconocido'
     const category = item.product?.category ?? ''
     if (!productSales[name]) productSales[name] = { name, category, qty: 0, revenue: 0 }
@@ -57,8 +56,8 @@ export async function buildBusinessContext(supabase: SupabaseClient): Promise<st
   const topProducts = Object.values(productSales).sort((a, b) => b.qty - a.qty).slice(0, 10)
 
   const byBranch: Record<string, { total: number; count: number }> = {}
-  todaySales?.forEach((s: { branch_id: string; total: number }) => {
-    const branch = branches?.find((b: { id: string; name: string }) => b.id === s.branch_id)?.name ?? s.branch_id
+  ;(todaySales as any[])?.forEach((s: any) => {
+    const branch = (branches as any[])?.find((b: any) => b.id === s.branch_id)?.name ?? s.branch_id
     if (!byBranch[branch]) byBranch[branch] = { total: 0, count: 0 }
     byBranch[branch].total += s.total
     byBranch[branch].count++
@@ -86,31 +85,29 @@ ${topProducts.length > 0 ? topProducts.map((p, i) => `${i + 1}. ${p.name} (${p.c
 --- STOCK ---
 Total ítems: ${stockItems?.length ?? 0} | Bajo mínimo: ${lowStock.length} | Sin stock: ${zeroStock.length}
 PRODUCTOS BAJO MÍNIMO:
-${lowStock.slice(0, 15).map((s: { quantity: number; min_quantity: number }) => {
-    const p = getP(s); const b = getB(s)
-    return `  · ${p?.is_star ? '⭐ ' : ''}${p?.name}: ${s.quantity} uds (mín ${s.min_quantity}) — ${b?.name}`
-  }).join('\n') || '  · Ninguno ✓'}
-ESTRELLA CON STOCK BAJO: ${starLow.length > 0 ? starLow.map((s: { quantity: number; min_quantity: number }) => `⭐ ${getP(s)?.name} (${s.quantity} uds)`).join(', ') : 'Ninguno ✓'}
+${lowStock.slice(0, 15).map((s: any) => {
+  const p = getP(s); const b = getB(s)
+  return `  · ${p?.is_star ? '⭐ ' : ''}${p?.name}: ${s.quantity} uds (mín ${s.min_quantity}) — ${b?.name}`
+}).join('\n') || '  · Ninguno ✓'}
+ESTRELLA CON STOCK BAJO: ${starLow.length > 0 ? starLow.map((s: any) => `⭐ ${getP(s)?.name} (${s.quantity} uds)`).join(', ') : 'Ninguno ✓'}
 
 INVENTARIO COMPLETO:
-${stockItems?.map((s: { quantity: number; min_quantity: number }) => {
-    const p = getP(s); const b = getB(s)
-    const low = s.quantity <= s.min_quantity ? ' ⚠️' : ''
-    return `  · ${p?.is_star ? '⭐ ' : ''}${p?.name} [${p?.category}]: ${s.quantity} uds (mín ${s.min_quantity}) — ${b?.name}${low} — PVP: ${fmt(p?.sell_price ?? 0)} | Costo: ${fmt(p?.cost_price ?? 0)}`
-  }).join('\n') ?? ''}
+${(stockItems as any[])?.map((s: any) => {
+  const p = getP(s); const b = getB(s)
+  const low = s.quantity <= s.min_quantity ? ' ⚠️' : ''
+  return `  · ${p?.is_star ? '⭐ ' : ''}${p?.name} [${p?.category}]: ${s.quantity} uds (mín ${s.min_quantity}) — ${b?.name}${low} — PVP: ${fmt(p?.sell_price ?? 0)} | Costo: ${fmt(p?.cost_price ?? 0)}`
+}).join('\n') ?? ''}
 
 --- ALERTAS ACTIVAS (${alerts?.length ?? 0}) ---
-${alerts?.length ? alerts.map((a: { type: string; message: string }) => `  · [${a.type}] ${a.message}`).join('\n') : '  · Sin alertas'}
+${alerts?.length ? (alerts as any[]).map((a: any) => `  · [${a.type}] ${a.message}`).join('\n') : '  · Sin alertas'}
 
 --- PEDIDOS A PROVEEDORES (últimos 10) ---
-${orders?.length ? orders.map((o: { total: number; status: string; supplier?: unknown; branch?: unknown }) => {
-    const sup = (o as { supplier?: { name?: string } }).supplier?.name
-    const b = (o as { branch?: { name?: string } }).branch?.name
-    return `  · ${sup} — ${b} — ${fmt(o.total)} (${o.status})`
-  }).join('\n') : '  · Sin pedidos'}
+${orders?.length ? (orders as any[]).map((o: any) => {
+  return `  · ${o.supplier?.name} — ${o.branch?.name} — ${fmt(o.total)} (${o.status})`
+}).join('\n') : '  · Sin pedidos'}
 
 --- PROVEEDORES ---
-${suppliers?.map((s: { name: string; contact_name?: string; phone?: string }) => `  · ${s.name}${s.contact_name ? ` — ${s.contact_name}` : ''}${s.phone ? ` — ${s.phone}` : ''}`).join('\n') ?? ''}
+${(suppliers as any[])?.map((s: any) => `  · ${s.name}${s.contact_name ? ` — ${s.contact_name}` : ''}${s.phone ? ` — ${s.phone}` : ''}`).join('\n') ?? ''}
 
 === FIN DEL CONTEXTO ===`
 }
