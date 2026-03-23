@@ -69,7 +69,7 @@ export function DashboardDirector({ profile, stats }: Props) {
           <Truck className="w-5 h-5 mb-3 opacity-60" />
           <p className="text-sm font-medium">Registrar pedido</p>
           <p className="text-xs opacity-60 mt-1">Escanear con IA</p>
-          <Link href="/suppliers/new-order">
+          <Link href="/suppliers">
             <Button variant="outline" size="sm" className="mt-3 bg-transparent border-white/30 text-white hover:bg-white/10 text-xs h-7">
               Nuevo pedido
             </Button>

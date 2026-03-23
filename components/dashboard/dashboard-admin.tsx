@@ -52,7 +52,7 @@ export function DashboardAdmin({ profile, stats }: Props) {
           <Package className="w-5 h-5 mb-3 opacity-60" />
           <p className="text-sm font-medium">Registrar pedido</p>
           <p className="text-xs opacity-60 mt-1">Escaneá la foto del pedido con IA</p>
-          <Link href="/suppliers/new-order">
+          <Link href="/suppliers">
             <Button size="sm" variant="outline" className="mt-3 border-white/30 text-white bg-transparent hover:bg-white/10 text-xs h-7">
               Nuevo pedido
             </Button>
