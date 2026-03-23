@@ -29,7 +29,8 @@ export default async function RadarPage() {
   // Agrupar ventas por producto (semana)
   const productSales: Record<string, { name: string; qty: number; revenue: number; is_star: boolean }> = {}
   weekSaleItems?.forEach((item) => {
-    const p = item.product as { name: string; is_star?: boolean }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const p = (item as any).product as { name: string; is_star?: boolean } | null
     if (!p?.name) return
     if (!productSales[p.name]) productSales[p.name] = { name: p.name, qty: 0, revenue: 0, is_star: p.is_star ?? false }
     productSales[p.name].qty += item.quantity

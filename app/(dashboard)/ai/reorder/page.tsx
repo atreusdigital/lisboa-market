@@ -30,15 +30,18 @@ export default async function ReorderPage() {
   // Calcular velocidad de venta por producto
   const salesVelocity: Record<string, number> = {}
   weekSaleItems?.forEach((item) => {
-    const name = (item.product as { name: string })?.name
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const name = ((item as any).product as { name: string } | null)?.name
     if (name) salesVelocity[name] = (salesVelocity[name] ?? 0) + item.quantity
   })
 
   // Mapear proveedor por producto (basado en historial de pedidos)
   const productSupplier: Record<string, string> = {}
   recentOrders?.forEach((item) => {
-    const name = (item.product as { name: string })?.name
-    const supplier = ((item.order as { supplier: { name: string } })?.supplier)?.name
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const name = ((item as any).product as { name: string } | null)?.name
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const supplier = ((item as any).order as { supplier: { name: string } } | null)?.supplier?.name
     if (name && supplier && !productSupplier[name]) productSupplier[name] = supplier
   })
 
