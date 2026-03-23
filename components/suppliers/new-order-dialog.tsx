@@ -102,12 +102,26 @@ export function NewOrderDialog({ open, onClose, suppliers, branches, products, p
       if (!res.ok) throw new Error('Error al procesar la imagen')
       const data = await res.json()
 
+      // Normalizar: minúsculas, sin guiones ni puntuación, espacios simples
+      function normalize(s: string) {
+        return s.toLowerCase()
+          .replace(/[-–—_]/g, ' ')
+          .replace(/[^a-z0-9áéíóúñü ]/g, '')
+          .replace(/\s+/g, ' ')
+          .trim()
+      }
+
+      function fuzzyMatch(a: string, b: string) {
+        const na = normalize(a)
+        const nb = normalize(b)
+        if (na.includes(nb) || nb.includes(na)) return true
+        // match por palabras clave (>3 chars)
+        const words = nb.split(' ').filter((w) => w.length > 3)
+        return words.length > 0 && words.every((w) => na.includes(w))
+      }
+
       const matched: ScannedItem[] = (data.items ?? []).map((item: { name: string; quantity: number }) => {
-        const product = products.find(
-          (p) =>
-            p.name.toLowerCase().includes(item.name.toLowerCase()) ||
-            item.name.toLowerCase().includes(p.name.toLowerCase())
-        )
+        const product = products.find((p) => fuzzyMatch(p.name, item.name))
         return {
           name: product?.name ?? item.name,
           quantity: item.quantity,
@@ -256,7 +270,7 @@ export function NewOrderDialog({ open, onClose, suppliers, branches, products, p
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-xl max-h-[88vh] overflow-y-auto">
+      <DialogContent className="w-[95vw] max-w-lg max-h-[88vh] overflow-y-auto overflow-x-hidden">
         <DialogHeader>
           <DialogTitle className="text-base font-semibold flex items-center gap-2">
             <Camera className="w-4 h-4" />
@@ -429,7 +443,7 @@ export function NewOrderDialog({ open, onClose, suppliers, branches, products, p
                         {item.matched ? '✓ Identificado' : '⚠ No encontrado — seleccioná el producto'}
                       </p>
                     </div>
-                    <div className="flex items-center gap-1.5 shrink-0">
+                    <div className="flex items-center gap-1 shrink-0">
                       <div className="space-y-0.5">
                         <p className="text-[10px] text-muted-foreground text-center">Cant.</p>
                         <Input
@@ -437,24 +451,24 @@ export function NewOrderDialog({ open, onClose, suppliers, branches, products, p
                           value={item.quantity}
                           onChange={(e) => updateItem(i, 'quantity', parseInt(e.target.value) || 0)}
                           min="0"
-                          className="w-14 h-7 text-xs text-center"
+                          className="w-12 h-7 text-xs text-center px-1"
                         />
                       </div>
                       <div className="space-y-0.5">
-                        <p className="text-[10px] text-muted-foreground text-center">Precio $</p>
+                        <p className="text-[10px] text-muted-foreground text-center">$ costo</p>
                         <Input
                           type="number"
                           value={item.unit_price}
                           onChange={(e) => updateItem(i, 'unit_price', parseFloat(e.target.value) || 0)}
                           min="0"
-                          className="w-20 h-7 text-xs"
+                          className="w-16 h-7 text-xs px-1"
                         />
                       </div>
                       <button
                         onClick={() => removeItem(i)}
                         className="mt-4 p-1 text-red-400 hover:text-red-600 transition-colors"
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
+                        <Trash2 className="w-3 h-3" />
                       </button>
                     </div>
                   </div>
