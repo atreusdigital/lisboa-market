@@ -138,69 +138,58 @@ export function BulkImportDialog({ open, onClose, branches, profileBranchId, isD
     }
 
     setImporting(true)
-    let count = 0
 
-    for (const row of validRows) {
-      let productId: string | null = null
+    const CHUNK = 100
 
-      // Check by barcode first, then by name
-      const lookupQuery = row.barcode
-        ? supabase.from('products').select('id').eq('barcode', row.barcode).maybeSingle()
-        : supabase.from('products').select('id').eq('name', row.name).maybeSingle()
+    // 1. Upsert all products in batches (conflict on barcode when present, else on name)
+    const withBarcode = validRows.filter((r) => r.barcode)
+    const withoutBarcode = validRows.filter((r) => !r.barcode)
 
-      const { data: existing } = await lookupQuery
+    const toPayload = (r: ParsedRow) => ({
+      name: r.name,
+      category: r.category || 'General',
+      subcategory: r.subcategory || null,
+      barcode: r.barcode || null,
+      cost_price: r.cost_price,
+      sell_price: r.sell_price,
+      pedidos_ya_price: r.pedidos_ya_price,
+      rappi_price: r.rappi_price,
+    })
 
-      const productPayload = {
-        name: row.name,
-        category: row.category || 'General',
-        subcategory: row.subcategory || null,
-        barcode: row.barcode || null,
-        cost_price: row.cost_price,
-        sell_price: row.sell_price,
-        pedidos_ya_price: row.pedidos_ya_price,
-        rappi_price: row.rappi_price,
-      }
-
-      if (existing?.id) {
-        productId = existing.id
-        await supabase.from('products').update(productPayload).eq('id', productId)
-      } else {
-        const { data: newProduct } = await supabase
-          .from('products')
-          .insert(productPayload)
-          .select('id')
-          .single()
-        productId = newProduct?.id ?? null
-      }
-
-      if (!productId) continue
-
-      // Upsert stock for this branch
-      const { data: existingStock } = await supabase
-        .from('stock')
-        .select('id')
-        .eq('product_id', productId)
-        .eq('branch_id', selectedBranch)
-        .maybeSingle()
-
-      if (existingStock?.id) {
-        await supabase.from('stock').update({
-          quantity: row.quantity,
-          min_quantity: row.min_quantity,
-        }).eq('id', existingStock.id)
-      } else {
-        await supabase.from('stock').insert({
-          product_id: productId,
-          branch_id: selectedBranch,
-          quantity: row.quantity,
-          min_quantity: row.min_quantity,
-        })
-      }
-
-      count++
+    for (let i = 0; i < withBarcode.length; i += CHUNK) {
+      await supabase.from('products')
+        .upsert(withBarcode.slice(i, i + CHUNK).map(toPayload), { onConflict: 'barcode' })
+    }
+    for (let i = 0; i < withoutBarcode.length; i += CHUNK) {
+      await supabase.from('products')
+        .upsert(withoutBarcode.slice(i, i + CHUNK).map(toPayload), { onConflict: 'name' })
     }
 
-    setImportedCount(count)
+    // 2. Fetch all product IDs by barcode or name
+    const barcodes = withBarcode.map((r) => r.barcode)
+    const names = withoutBarcode.map((r) => r.name)
+
+    const { data: productsByBarcode } = await supabase
+      .from('products').select('id, barcode').in('barcode', barcodes)
+    const { data: productsByName } = await supabase
+      .from('products').select('id, name').in('name', names)
+
+    const barcodeMap = Object.fromEntries((productsByBarcode ?? []).map((p) => [p.barcode, p.id]))
+    const nameMap = Object.fromEntries((productsByName ?? []).map((p) => [p.name, p.id]))
+
+    // 3. Build stock upsert payload
+    const stockRows = validRows.flatMap((r) => {
+      const productId = r.barcode ? barcodeMap[r.barcode] : nameMap[r.name]
+      if (!productId) return []
+      return [{ product_id: productId, branch_id: selectedBranch, quantity: r.quantity, min_quantity: r.min_quantity }]
+    })
+
+    for (let i = 0; i < stockRows.length; i += CHUNK) {
+      await supabase.from('stock')
+        .upsert(stockRows.slice(i, i + CHUNK), { onConflict: 'product_id,branch_id' })
+    }
+
+    setImportedCount(stockRows.length)
     setImporting(false)
     setStep('done')
   }
