@@ -45,8 +45,9 @@ export function StockModule({ stockItems, branches, products, profile }: Props) 
     return stockItems.filter((item) => {
       const name = item.product?.name?.toLowerCase() ?? ''
       const category = item.product?.category?.toLowerCase() ?? ''
+      const barcode = item.product?.barcode ?? ''
       const q = search.toLowerCase()
-      if (search && !name.includes(q) && !category.includes(q)) return false
+      if (search && !name.includes(q) && !category.includes(q) && !barcode.includes(q)) return false
       if (branchFilter !== 'all' && item.branch_id !== branchFilter) return false
       if (statusFilter === 'low' && item.quantity > item.min_quantity) return false
       if (statusFilter === 'ok' && item.quantity <= item.min_quantity) return false
@@ -155,6 +156,7 @@ export function StockModule({ stockItems, branches, products, profile }: Props) 
               <tr className="border-b border-border bg-neutral-50">
                 <th className="px-3 md:px-4 py-3 w-8"></th>
                 <th className="text-left px-3 md:px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Producto</th>
+                <th className="hidden lg:table-cell text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Cód. Barras</th>
                 <th className="hidden md:table-cell text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Categoría</th>
                 {profile.role === 'director' && (
                   <th className="hidden md:table-cell text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Sucursal</th>
@@ -194,6 +196,7 @@ export function StockModule({ stockItems, branches, products, profile }: Props) 
                           <span className="leading-tight">{item.product?.name}</span>
                         </div>
                       </td>
+                      <td className="hidden lg:table-cell px-4 py-3 text-xs text-muted-foreground tabular-nums font-mono">{item.product?.barcode ?? '—'}</td>
                       <td className="hidden md:table-cell px-4 py-3 text-sm text-muted-foreground">{item.product?.category}</td>
                       {profile.role === 'director' && (
                         <td className="hidden md:table-cell px-4 py-3 text-sm text-muted-foreground">{item.branch?.name}</td>
