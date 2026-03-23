@@ -25,10 +25,10 @@ export default async function StockPage() {
     stockQuery = stockQuery.eq('branch_id', profile.branch_id)
   }
 
-  const { data: stockItems } = await stockQuery
+  const { data: stockItems } = await stockQuery.range(0, 4999)
 
   const { data: branches } = await supabase.from('branches').select('*')
-  const { data: products } = await supabase.from('products').select('*').order('name')
+  const { data: products } = await supabase.from('products').select('*').order('name').range(0, 4999)
 
   const { count: alertCount } = await supabase
     .from('alerts')
