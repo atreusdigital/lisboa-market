@@ -6,20 +6,29 @@ import { createClient } from '@/lib/supabase/client'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Card } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Search, Plus, AlertTriangle, Camera, History, Pencil, Upload } from 'lucide-react'
+import { Search, Plus, AlertTriangle, Camera, History, Pencil, Upload, Trash2 } from 'lucide-react'
 import { ProductDialog } from './product-dialog'
 import { ScanDeliveryDialog } from './scan-delivery-dialog'
 import { StockMovementsDialog } from './stock-movements-dialog'
 import { BulkImportDialog } from './bulk-import-dialog'
 import { cn } from '@/lib/utils'
+import { toast } from 'sonner'
 
 interface Props {
   stockItems: Stock[]
   branches: Branch[]
   products: Product[]
   profile: Profile
+}
+
+function fmt(n: number) {
+  return new Intl.NumberFormat('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n)
+}
+
+function rentabilidad(sell: number, cost: number) {
+  if (!sell || sell === 0) return '—'
+  return ((sell - cost) / sell * 100).toFixed(2) + '%'
 }
 
 export function StockModule({ stockItems, branches, products, profile }: Props) {
@@ -34,12 +43,20 @@ export function StockModule({ stockItems, branches, products, profile }: Props) 
   const [starFilter, setStarFilter] = useState(false)
   const supabase = createClient()
 
+  const isAdmin = profile.role !== 'empleado'
+
   async function toggleStar(productId: string, current: boolean) {
     await supabase.from('products').update({ is_star: !current }).eq('id', productId)
     window.location.reload()
   }
 
-  const isAdmin = profile.role !== 'empleado'
+  async function handleDelete(item: Stock) {
+    if (!confirm(`¿Borrar "${item.product?.name}"? Esta acción no se puede deshacer.`)) return
+    await supabase.from('stock').delete().eq('id', item.id)
+    await supabase.from('products').delete().eq('id', item.product_id)
+    toast.success('Producto eliminado')
+    window.location.reload()
+  }
 
   const filtered = useMemo(() => {
     return stockItems.filter((item) => {
@@ -54,49 +71,33 @@ export function StockModule({ stockItems, branches, products, profile }: Props) 
       if (starFilter && !item.product?.is_star) return false
       return true
     })
-  }, [stockItems, search, branchFilter, statusFilter])
+  }, [stockItems, search, branchFilter, statusFilter, starFilter])
 
   const lowStockCount = stockItems.filter((i) => i.quantity <= i.min_quantity).length
 
   return (
-    <div className="space-y-5">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
           <h2 className="text-lg font-semibold">Inventario</h2>
           <p className="text-sm text-muted-foreground">
-            {stockItems.length} ítems
+            {stockItems.length} productos
             {lowStockCount > 0 && (
               <span className="ml-2 text-red-500 font-medium">{lowStockCount} bajo stock mínimo</span>
             )}
           </p>
         </div>
         {isAdmin && (
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowBulkImport(true)}
-              className="h-8 text-xs gap-1.5"
-            >
-              <Upload className="w-3.5 h-3.5" />
-              Importar CSV
+          <div className="flex items-center gap-2 flex-wrap">
+            <Button variant="outline" size="sm" onClick={() => setShowBulkImport(true)} className="h-8 text-xs gap-1.5">
+              <Upload className="w-3.5 h-3.5" /> Importar CSV
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowScanDialog(true)}
-              className="h-8 text-xs gap-1.5"
-            >
-              <Camera className="w-3.5 h-3.5" />
-              Escanear pedido IA
+            <Button variant="outline" size="sm" onClick={() => setShowScanDialog(true)} className="h-8 text-xs gap-1.5">
+              <Camera className="w-3.5 h-3.5" /> Escanear pedido IA
             </Button>
-            <Button
-              size="sm"
-              onClick={() => setShowProductDialog(true)}
-              className="h-8 text-xs gap-1.5 bg-black text-white hover:bg-neutral-800"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              Nuevo producto
+            <Button size="sm" onClick={() => setShowProductDialog(true)} className="h-8 text-xs gap-1.5 bg-black text-white hover:bg-neutral-800">
+              <Plus className="w-3.5 h-3.5" /> Nuevo producto
             </Button>
           </div>
         )}
@@ -106,14 +107,8 @@ export function StockModule({ stockItems, branches, products, profile }: Props) 
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative flex-1 min-w-48">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-          <Input
-            placeholder="Buscar producto..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-8 h-8 text-sm"
-          />
+          <Input placeholder="Buscar por nombre, categoría o código..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-8 h-8 text-sm" />
         </div>
-
         {profile.role === 'director' && (
           <Select value={branchFilter} onValueChange={(v) => v && setBranchFilter(v)}>
             <SelectTrigger className="h-8 text-xs w-40">
@@ -121,15 +116,12 @@ export function StockModule({ stockItems, branches, products, profile }: Props) 
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todas las sucursales</SelectItem>
-              {branches.map((b) => (
-                <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
-              ))}
+              {branches.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
             </SelectContent>
           </Select>
         )}
-
         <Select value={statusFilter} onValueChange={(v) => v && setStatusFilter(v)}>
-          <SelectTrigger className="h-8 text-xs w-36">
+          <SelectTrigger className="h-8 text-xs w-32">
             <span>{statusFilter === 'all' ? 'Todos' : statusFilter === 'low' ? 'Stock bajo' : 'Stock ok'}</span>
           </SelectTrigger>
           <SelectContent>
@@ -140,107 +132,142 @@ export function StockModule({ stockItems, branches, products, profile }: Props) 
         </Select>
         <button
           onClick={() => setStarFilter(!starFilter)}
-          className={`h-8 px-3 rounded-md border text-xs flex items-center gap-1.5 transition-colors ${
-            starFilter ? 'border-amber-300 bg-amber-50 text-amber-700' : 'border-border bg-white text-muted-foreground hover:border-amber-200'
-          }`}
+          className={`h-8 px-3 rounded-md border text-xs flex items-center gap-1.5 transition-colors ${starFilter ? 'border-amber-300 bg-amber-50 text-amber-700' : 'border-border bg-white text-muted-foreground hover:border-amber-200'}`}
         >
           ⭐ Estrella
         </button>
       </div>
 
       {/* Tabla */}
-      <Card className="border-border overflow-hidden">
+      <div className="border border-border rounded-lg overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full text-xs whitespace-nowrap">
             <thead>
               <tr className="border-b border-border bg-neutral-50">
-                <th className="px-3 md:px-4 py-3 w-8"></th>
-                <th className="text-left px-3 md:px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Producto</th>
-                <th className="hidden lg:table-cell text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Cód. Barras</th>
-                <th className="hidden md:table-cell text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Categoría</th>
-                {profile.role === 'director' && (
-                  <th className="hidden md:table-cell text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Sucursal</th>
-                )}
-                <th className="text-right px-3 md:px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Stock</th>
-                <th className="hidden sm:table-cell text-right px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Mínimo</th>
-                <th className="hidden sm:table-cell text-right px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Precio</th>
-                <th className="text-center px-3 md:px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Estado</th>
-                <th className="px-3 md:px-4 py-3"></th>
+                <th className="px-2 py-2.5 w-6"></th>
+                <th className="text-left px-2 py-2.5 font-medium text-muted-foreground uppercase tracking-wider">Codigo</th>
+                <th className="text-left px-2 py-2.5 font-medium text-muted-foreground uppercase tracking-wider min-w-[180px]">Descripcion</th>
+                <th className="text-left px-2 py-2.5 font-medium text-muted-foreground uppercase tracking-wider">categoria</th>
+                <th className="text-left px-2 py-2.5 font-medium text-muted-foreground uppercase tracking-wider">subcategoria</th>
+                <th className="text-right px-2 py-2.5 font-medium text-muted-foreground uppercase tracking-wider">Lista<br/>Mostrador</th>
+                <th className="text-right px-2 py-2.5 font-medium text-muted-foreground uppercase tracking-wider">Lista<br/>PedidosYa</th>
+                <th className="text-right px-2 py-2.5 font-medium text-muted-foreground uppercase tracking-wider">Lista<br/>Rappi</th>
+                <th className="text-right px-2 py-2.5 font-medium text-muted-foreground uppercase tracking-wider">Costo</th>
+                <th className="text-right px-2 py-2.5 font-medium text-muted-foreground uppercase tracking-wider">Rentabilidad</th>
+                <th className="text-right px-2 py-2.5 font-medium text-muted-foreground uppercase tracking-wider">Stock<br/>Minimo</th>
+                <th className="text-left px-2 py-2.5 font-medium text-muted-foreground uppercase tracking-wider min-w-[130px]">Ult. Modificacion<br/>Precio</th>
+                <th className="text-left px-2 py-2.5 font-medium text-muted-foreground uppercase tracking-wider min-w-[130px]">Ult. Modificacion<br/>Costo</th>
+                <th className="text-right px-2 py-2.5 font-medium text-muted-foreground uppercase tracking-wider">Stock</th>
+                <th className="text-center px-2 py-2.5 font-medium text-muted-foreground uppercase tracking-wider min-w-[120px]">Mov Stock</th>
+                <th className="text-center px-2 py-2.5 font-medium text-muted-foreground uppercase tracking-wider">Estado</th>
+                {isAdmin && <th className="text-center px-2 py-2.5 font-medium text-muted-foreground uppercase tracking-wider">Editar</th>}
+                {isAdmin && <th className="text-center px-2 py-2.5 font-medium text-muted-foreground uppercase tracking-wider">Borrar</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-4 py-10 text-center text-sm text-muted-foreground">
+                  <td colSpan={18} className="px-4 py-10 text-center text-sm text-muted-foreground">
                     No hay productos que coincidan con la búsqueda
                   </td>
                 </tr>
               ) : (
                 filtered.map((item) => {
+                  const p = item.product
                   const isLow = item.quantity <= item.min_quantity
                   const isCritical = item.quantity === 0
                   return (
-                    <tr key={item.id} className={cn('hover:bg-neutral-50 transition-colors', isLow && 'bg-red-50/30')}>
-                      <td className="px-3 md:px-4 py-3 text-center">
-                        <button
-                          onClick={() => toggleStar(item.product_id, item.product?.is_star ?? false)}
-                          className="text-base leading-none opacity-60 hover:opacity-100 transition-opacity"
-                          title={item.product?.is_star ? 'Quitar estrella' : 'Marcar como estrella'}
-                        >
-                          {item.product?.is_star ? '⭐' : '☆'}
+                    <tr key={item.id} className={cn('hover:bg-neutral-50/80 transition-colors', isLow && 'bg-red-50/30')}>
+                      {/* Star */}
+                      <td className="px-2 py-2 text-center">
+                        <button onClick={() => toggleStar(item.product_id, p?.is_star ?? false)} className="opacity-50 hover:opacity-100 transition-opacity text-sm leading-none">
+                          {p?.is_star ? '⭐' : '☆'}
                         </button>
                       </td>
-                      <td className="px-3 md:px-4 py-3 font-medium text-sm">
-                        <div className="flex items-center gap-2">
-                          {isLow && <AlertTriangle className="w-3.5 h-3.5 text-red-500 shrink-0" />}
-                          <span className="leading-tight">{item.product?.name}</span>
+                      {/* Codigo */}
+                      <td className="px-2 py-2 font-mono text-[11px] text-muted-foreground">{p?.barcode ?? '—'}</td>
+                      {/* Descripcion */}
+                      <td className="px-2 py-2 font-medium max-w-[220px]">
+                        <div className="flex items-center gap-1.5">
+                          {isLow && <AlertTriangle className="w-3 h-3 text-red-500 shrink-0" />}
+                          <span className="truncate">{p?.name}</span>
                         </div>
                       </td>
-                      <td className="hidden lg:table-cell px-4 py-3 text-xs text-muted-foreground tabular-nums font-mono">{item.product?.barcode ?? '—'}</td>
-                      <td className="hidden md:table-cell px-4 py-3 text-sm text-muted-foreground">{item.product?.category}</td>
-                      {profile.role === 'director' && (
-                        <td className="hidden md:table-cell px-4 py-3 text-sm text-muted-foreground">{item.branch?.name}</td>
-                      )}
-                      <td className={cn('px-3 md:px-4 py-3 text-right font-medium tabular-nums', isCritical && 'text-red-600', isLow && !isCritical && 'text-amber-600')}>
+                      {/* Categoria */}
+                      <td className="px-2 py-2 text-muted-foreground">{p?.category ?? '—'}</td>
+                      {/* Subcategoria */}
+                      <td className="px-2 py-2 text-muted-foreground">{p?.subcategory ?? '—'}</td>
+                      {/* Lista Mostrador */}
+                      <td className="px-2 py-2 text-right tabular-nums font-medium">{fmt(p?.sell_price ?? 0)}</td>
+                      {/* Lista PedidosYa */}
+                      <td className="px-2 py-2 text-right tabular-nums text-blue-700">{p?.pedidos_ya_price ? fmt(p.pedidos_ya_price) : '—'}</td>
+                      {/* Lista Rappi */}
+                      <td className="px-2 py-2 text-right tabular-nums text-orange-600">{p?.rappi_price ? fmt(p.rappi_price) : '—'}</td>
+                      {/* Costo */}
+                      <td className="px-2 py-2 text-right tabular-nums text-muted-foreground">{p?.cost_price ? fmt(p.cost_price) : '—'}</td>
+                      {/* Rentabilidad */}
+                      <td className="px-2 py-2 text-right tabular-nums text-emerald-700 font-medium">
+                        {rentabilidad(p?.sell_price ?? 0, p?.cost_price ?? 0)}
+                      </td>
+                      {/* Stock Minimo */}
+                      <td className="px-2 py-2 text-right tabular-nums">{item.min_quantity}</td>
+                      {/* Ult. Modificacion Precio */}
+                      <td className="px-2 py-2 text-muted-foreground text-[10px]">
+                        {p?.sell_price_updated_at
+                          ? `${p.sell_price_updated_at}${p.sell_price_updated_by ? ` (${p.sell_price_updated_by})` : ''}`
+                          : '—'}
+                      </td>
+                      {/* Ult. Modificacion Costo */}
+                      <td className="px-2 py-2 text-muted-foreground text-[10px]">
+                        {p?.cost_updated_at
+                          ? `${p.cost_updated_at}${p.cost_updated_by ? ` (${p.cost_updated_by})` : ''}`
+                          : '—'}
+                      </td>
+                      {/* Stock */}
+                      <td className={cn('px-2 py-2 text-right font-semibold tabular-nums', isCritical ? 'text-red-600' : isLow ? 'text-amber-600' : '')}>
                         {item.quantity}
                       </td>
-                      <td className="hidden sm:table-cell px-4 py-3 text-right text-muted-foreground tabular-nums">{item.min_quantity}</td>
-                      <td className="hidden sm:table-cell px-4 py-3 text-right tabular-nums">
-                        {new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 0 }).format(item.product?.sell_price ?? 0)}
-                      </td>
-                      <td className="px-3 md:px-4 py-3 text-center">
-                        <Badge
-                          variant="outline"
-                          className={cn(
-                            'text-[10px] border-0',
-                            isCritical ? 'bg-red-100 text-red-700' :
-                            isLow ? 'bg-amber-100 text-amber-700' :
-                            'bg-emerald-100 text-emerald-700'
-                          )}
-                        >
-                          {isCritical ? 'Sin stock' : isLow ? 'Bajo' : 'OK'}
-                        </Badge>
-                      </td>
-                      <td className="px-3 md:px-4 py-3 text-right">
-                        <div className="flex items-center justify-end gap-1">
+                      {/* Mov Stock */}
+                      <td className="px-2 py-2 text-center">
+                        <div className="flex items-center justify-center gap-1">
                           {isAdmin && (
                             <button
                               onClick={() => setEditItem(item)}
-                              className="p-1.5 rounded hover:bg-neutral-100 transition-colors text-muted-foreground hover:text-foreground"
-                              title="Editar producto"
+                              className="text-[10px] px-2 py-1 rounded bg-blue-600 text-white hover:bg-blue-700 transition-colors font-medium"
                             >
-                              <Pencil className="w-3.5 h-3.5" />
+                              Carga Manual
                             </button>
                           )}
                           <button
                             onClick={() => setMovementsItem(item)}
-                            className="p-1.5 rounded hover:bg-neutral-100 transition-colors text-muted-foreground hover:text-foreground"
-                            title="Ver movimientos"
+                            className="text-[10px] px-2 py-1 rounded bg-neutral-200 text-neutral-700 hover:bg-neutral-300 transition-colors font-medium"
                           >
-                            <History className="w-3.5 h-3.5" />
+                            Detalle
                           </button>
                         </div>
                       </td>
+                      {/* Estado */}
+                      <td className="px-2 py-2 text-center">
+                        <Badge variant="outline" className={cn('text-[10px] border-0', isCritical ? 'bg-red-100 text-red-700' : isLow ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700')}>
+                          {isCritical ? 'Sin stock' : isLow ? 'Bajo' : 'OK'}
+                        </Badge>
+                      </td>
+                      {/* Editar */}
+                      {isAdmin && (
+                        <td className="px-2 py-2 text-center">
+                          <button onClick={() => setEditItem(item)} className="text-[10px] px-2 py-1 rounded bg-neutral-800 text-white hover:bg-black transition-colors font-medium">
+                            Editar
+                          </button>
+                        </td>
+                      )}
+                      {/* Borrar */}
+                      {isAdmin && (
+                        <td className="px-2 py-2 text-center">
+                          <button onClick={() => handleDelete(item)} className="text-[10px] px-2 py-1 rounded bg-red-600 text-white hover:bg-red-700 transition-colors font-medium">
+                            Borrar
+                          </button>
+                        </td>
+                      )}
                     </tr>
                   )
                 })
@@ -248,60 +275,23 @@ export function StockModule({ stockItems, branches, products, profile }: Props) 
             </tbody>
           </table>
         </div>
-      </Card>
+      </div>
 
+      {/* Dialogs */}
       {showProductDialog && (
-        <ProductDialog
-          branches={branches}
-          open={showProductDialog}
-          onClose={() => setShowProductDialog(false)}
-          profileBranchId={profile.branch_id}
-          isDirector={profile.role === 'director'}
-          userId={profile.id}
-        />
+        <ProductDialog branches={branches} open={showProductDialog} onClose={() => setShowProductDialog(false)} profileBranchId={profile.branch_id} isDirector={profile.role === 'director'} userId={profile.id} />
       )}
-
       {editItem && (
-        <ProductDialog
-          branches={branches}
-          open={!!editItem}
-          onClose={() => setEditItem(null)}
-          profileBranchId={profile.branch_id}
-          isDirector={profile.role === 'director'}
-          userId={profile.id}
-          editProduct={editItem.product as any}
-          editStockItem={editItem}
-        />
+        <ProductDialog branches={branches} open={!!editItem} onClose={() => setEditItem(null)} profileBranchId={profile.branch_id} isDirector={profile.role === 'director'} userId={profile.id} editProduct={editItem.product as any} editStockItem={editItem} />
       )}
-
       {showScanDialog && (
-        <ScanDeliveryDialog
-          open={showScanDialog}
-          onClose={() => setShowScanDialog(false)}
-          products={products}
-          branches={branches}
-          profileBranchId={profile.branch_id}
-          isDirector={profile.role === 'director'}
-        />
+        <ScanDeliveryDialog open={showScanDialog} onClose={() => setShowScanDialog(false)} products={products} branches={branches} profileBranchId={profile.branch_id} isDirector={profile.role === 'director'} />
       )}
-
       {movementsItem && (
-        <StockMovementsDialog
-          open={!!movementsItem}
-          onClose={() => setMovementsItem(null)}
-          stockItem={movementsItem}
-          profile={profile}
-        />
+        <StockMovementsDialog open={!!movementsItem} onClose={() => setMovementsItem(null)} stockItem={movementsItem} profile={profile} />
       )}
-
       {showBulkImport && (
-        <BulkImportDialog
-          open={showBulkImport}
-          onClose={() => setShowBulkImport(false)}
-          branches={branches}
-          profileBranchId={profile.branch_id}
-          isDirector={profile.role === 'director'}
-        />
+        <BulkImportDialog open={showBulkImport} onClose={() => setShowBulkImport(false)} branches={branches} profileBranchId={profile.branch_id} isDirector={profile.role === 'director'} />
       )}
     </div>
   )

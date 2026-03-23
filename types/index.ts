@@ -34,9 +34,37 @@ export type Product = {
   sell_price: number
   pedidos_ya_price: number
   rappi_price: number
+  family_id: string | null
+  sell_price_updated_at: string | null
+  sell_price_updated_by: string | null
+  cost_updated_at: string | null
+  cost_updated_by: string | null
   image_url: string | null
   is_star: boolean
   created_at: string
+}
+
+export type ProductFamily = {
+  id: string
+  name: string
+  description: string | null
+  color: string
+  created_at: string
+}
+
+export type PromotionType = 'tiered_discount' | 'nx_for_y'
+
+export type TieredDiscountRule = { quantity: number; discount_pct: number }
+export type NxForYRule = { buy: number; pay: number }
+
+export type Promotion = {
+  id: string
+  name: string
+  type: PromotionType
+  is_active: boolean
+  rules: TieredDiscountRule[] | NxForYRule[]
+  created_at: string
+  products?: Product[]
 }
 
 export type Stock = {
