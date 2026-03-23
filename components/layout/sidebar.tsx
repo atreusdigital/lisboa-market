@@ -15,6 +15,7 @@ import {
   TrendingUp,
   ClipboardList,
   Receipt,
+  Wallet,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
@@ -23,6 +24,7 @@ const navItems = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard, roles: ['director', 'admin', 'empleado'] },
   { href: '/sales', label: 'Ventas', icon: Receipt, roles: ['director', 'admin'] },
   { href: '/pos', label: 'Punto de Venta', icon: ShoppingCart, roles: ['director', 'admin', 'empleado'] },
+  { href: '/caja', label: 'Caja', icon: Wallet, roles: ['director', 'admin', 'empleado'] },
   { href: '/stock', label: 'Stock', icon: Package, roles: ['director', 'admin', 'empleado'] },
   { href: '/suppliers', label: 'Proveedores', icon: Truck, roles: ['director', 'admin'] },
   { href: '/alerts', label: 'Alertas', icon: Bell, roles: ['director', 'admin'] },

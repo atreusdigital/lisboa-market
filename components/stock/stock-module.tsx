@@ -243,6 +243,7 @@ export function StockModule({ stockItems, branches, products, profile }: Props) 
           onClose={() => setShowProductDialog(false)}
           profileBranchId={profile.branch_id}
           isDirector={profile.role === 'director'}
+          userId={profile.id}
         />
       )}
 
@@ -253,7 +254,8 @@ export function StockModule({ stockItems, branches, products, profile }: Props) 
           onClose={() => setEditItem(null)}
           profileBranchId={profile.branch_id}
           isDirector={profile.role === 'director'}
-          editProduct={editItem.product}
+          userId={profile.id}
+          editProduct={editItem.product as any}
           editStockItem={editItem}
         />
       )}

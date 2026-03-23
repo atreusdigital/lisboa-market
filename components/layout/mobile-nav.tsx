@@ -8,21 +8,18 @@ import {
   LayoutDashboard,
   ShoppingCart,
   Package,
-  Receipt,
+  Wallet,
   Truck,
   Bell,
-  BarChart3,
-  Users,
 } from 'lucide-react'
 
 const navItems = [
   { href: '/', label: 'Inicio', icon: LayoutDashboard, roles: ['director', 'admin', 'empleado'], exact: true },
-  { href: '/sales', label: 'Ventas', icon: Receipt, roles: ['director', 'admin'] },
   { href: '/pos', label: 'POS', icon: ShoppingCart, roles: ['director', 'admin', 'empleado'] },
+  { href: '/caja', label: 'Caja', icon: Wallet, roles: ['director', 'admin', 'empleado'] },
   { href: '/stock', label: 'Stock', icon: Package, roles: ['director', 'admin', 'empleado'] },
   { href: '/suppliers', label: 'Pedidos', icon: Truck, roles: ['director', 'admin'] },
   { href: '/alerts', label: 'Alertas', icon: Bell, roles: ['director', 'admin'] },
-  { href: '/analytics', label: 'Reportes', icon: BarChart3, roles: ['director', 'admin'] },
 ]
 
 interface Props {

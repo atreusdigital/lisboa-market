@@ -1,13 +1,13 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useCallback } from 'react'
 import type { Stock, Profile, CartItem, Branch } from '@/types'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
-import { Search, Plus, Minus, Trash2, ShoppingCart, Banknote, Package } from 'lucide-react'
+import { Search, Plus, Minus, Trash2, ShoppingCart, Banknote, Package, WifiOff, RefreshCw } from 'lucide-react'
 import { MPLogo } from '@/components/ui/mp-logo'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
@@ -15,6 +15,17 @@ import { cn } from '@/lib/utils'
 import { MPPaymentModal } from './mp-payment-modal'
 
 const LISBOA_GREEN = '#1C2B23'
+const OFFLINE_QUEUE_KEY = 'pos_offline_queue'
+
+interface OfflineSale {
+  id: string
+  branch_id: string
+  user_id: string
+  total: number
+  payment_method: string
+  items: { product_id: string; quantity: number; unit_price: number }[]
+  created_at: string
+}
 
 interface Props {
   stockItems: Stock[]
@@ -29,9 +40,62 @@ export function POSInterface({ stockItems, branches, profile }: Props) {
   const [loading, setLoading] = useState(false)
   const [mobileTab, setMobileTab] = useState<'products' | 'cart'>('products')
   const [mpModal, setMpModal] = useState<{ externalReference: string } | null>(null)
+  const [isOnline, setIsOnline] = useState(true)
+  const [pendingSync, setPendingSync] = useState(0)
   // Directors choose branch; others use their assigned branch
   const [selectedBranchId, setSelectedBranchId] = useState<string>(profile.branch_id ?? '')
   const supabase = createClient()
+
+  // Detectar estado de conexión
+  useEffect(() => {
+    const update = () => setIsOnline(navigator.onLine)
+    window.addEventListener('online', update)
+    window.addEventListener('offline', update)
+    setIsOnline(navigator.onLine)
+    // Contar ventas pendientes
+    const queue: OfflineSale[] = JSON.parse(localStorage.getItem(OFFLINE_QUEUE_KEY) ?? '[]')
+    setPendingSync(queue.length)
+    return () => { window.removeEventListener('online', update); window.removeEventListener('offline', update) }
+  }, [])
+
+  // Sincronizar ventas offline cuando vuelve la conexión
+  const syncOfflineSales = useCallback(async () => {
+    const queue: OfflineSale[] = JSON.parse(localStorage.getItem(OFFLINE_QUEUE_KEY) ?? '[]')
+    if (queue.length === 0) return
+    let synced = 0
+    for (const sale of queue) {
+      try {
+        const { data: newSale, error } = await supabase.from('sales').insert({
+          branch_id: sale.branch_id,
+          user_id: sale.user_id,
+          total: sale.total,
+          payment_method: sale.payment_method,
+          created_at: sale.created_at,
+        }).select().single()
+        if (error) continue
+        for (const item of sale.items) {
+          await supabase.from('sale_items').insert({ sale_id: newSale.id, ...item })
+          await supabase.from('stock').update({
+            quantity: supabase.rpc as unknown as number,
+          })
+          // Actualizar stock
+          const { data: stockRow } = await supabase.from('stock')
+            .select('id, quantity').eq('product_id', item.product_id).eq('branch_id', sale.branch_id).single()
+          if (stockRow) {
+            await supabase.from('stock').update({ quantity: Math.max(0, stockRow.quantity - item.quantity) }).eq('id', stockRow.id)
+          }
+        }
+        synced++
+      } catch {}
+    }
+    localStorage.setItem(OFFLINE_QUEUE_KEY, '[]')
+    setPendingSync(0)
+    if (synced > 0) toast.success(`${synced} venta${synced > 1 ? 's' : ''} sincronizada${synced > 1 ? 's' : ''}`)
+  }, [supabase])
+
+  useEffect(() => {
+    if (isOnline && pendingSync > 0) syncOfflineSales()
+  }, [isOnline])
 
   const branchStock = useMemo(() =>
     selectedBranchId ? stockItems.filter((s) => s.branch_id === selectedBranchId) : [],
@@ -95,6 +159,32 @@ export function POSInterface({ stockItems, branches, profile }: Props) {
     new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 0 }).format(n)
 
   async function recordSale(mpPaymentId?: string) {
+    // Modo offline: guardar en cola local
+    if (!isOnline && paymentMethod === 'efectivo') {
+      const offlineSale: OfflineSale = {
+        id: `offline-${Date.now()}`,
+        branch_id: selectedBranchId,
+        user_id: profile.id,
+        total,
+        payment_method: paymentMethod,
+        items: cart.map(item => ({
+          product_id: item.product.id,
+          quantity: item.quantity,
+          unit_price: item.product.sell_price,
+        })),
+        created_at: new Date().toISOString(),
+      }
+      const queue: OfflineSale[] = JSON.parse(localStorage.getItem(OFFLINE_QUEUE_KEY) ?? '[]')
+      queue.push(offlineSale)
+      localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(queue))
+      setPendingSync(queue.length)
+      setCart([])
+      setMobileTab('products')
+      toast.success('Venta guardada offline — se sincronizará cuando vuelva la conexión')
+      setLoading(false)
+      return
+    }
+
     const { data: sale, error: saleError } = await supabase
       .from('sales')
       .insert({
@@ -349,6 +439,22 @@ export function POSInterface({ stockItems, branches, profile }: Props) {
 
   return (
     <div className="flex flex-col gap-3 h-[calc(100vh-3.5rem)] md:h-[calc(100vh-3.5rem)]">
+      {/* Banner offline */}
+      {!isOnline && (
+        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-xs font-medium">
+          <WifiOff className="w-3.5 h-3.5 shrink-0" />
+          <span>Sin conexión — solo podés cobrar en efectivo. Las ventas se sincronizan al reconectarse.</span>
+        </div>
+      )}
+      {isOnline && pendingSync > 0 && (
+        <button
+          onClick={syncOfflineSales}
+          className="flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-50 border border-blue-200 text-blue-800 text-xs font-medium w-full"
+        >
+          <RefreshCw className="w-3.5 h-3.5 shrink-0" />
+          <span>{pendingSync} venta{pendingSync > 1 ? 's' : ''} pendiente{pendingSync > 1 ? 's' : ''} de sincronizar — tocá para sincronizar</span>
+        </button>
+      )}
       {/* Selector de sucursal para directores */}
       {profile.role === 'director' && (
         <div className="flex items-center gap-3 p-3 rounded-lg border border-border bg-neutral-50">

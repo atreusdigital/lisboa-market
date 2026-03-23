@@ -173,3 +173,61 @@ export type DashboardStats = {
   active_alerts: number
   pending_orders: number
 }
+
+export type ShiftStatus = 'open' | 'closed'
+
+export type Shift = {
+  id: string
+  branch_id: string
+  user_id: string
+  opened_at: string
+  closed_at: string | null
+  opening_cash: number
+  closing_cash: number | null
+  total_sales: number
+  notes: string | null
+  status: ShiftStatus
+  user?: Profile
+  branch?: Branch
+}
+
+export type CashClosing = {
+  id: string
+  branch_id: string
+  user_id: string
+  shift_id: string | null
+  date: string
+  expected_cash: number
+  actual_cash: number
+  difference: number
+  notes: string | null
+  created_at: string
+  user?: Profile
+}
+
+export type ExpenseCategory = 'electricidad' | 'limpieza' | 'delivery' | 'sueldo' | 'mantenimiento' | 'marketing' | 'otros'
+
+export type Expense = {
+  id: string
+  branch_id: string
+  user_id: string
+  category: ExpenseCategory
+  description: string
+  amount: number
+  date: string
+  created_at: string
+  user?: Profile
+}
+
+export type PriceHistory = {
+  id: string
+  product_id: string
+  old_cost_price: number | null
+  new_cost_price: number | null
+  old_sell_price: number | null
+  new_sell_price: number | null
+  changed_by: string | null
+  created_at: string
+  product?: Product
+  user?: Profile
+}

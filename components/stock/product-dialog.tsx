@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
+import { cn } from '@/lib/utils'
 import type { Branch, Product, Stock } from '@/types'
 
 const CATEGORIES = [
@@ -21,16 +22,17 @@ interface Props {
   branches: Branch[]
   profileBranchId: string | null
   isDirector: boolean
-  // Modo edición
-  editProduct?: Product
+  userId: string
+  editProduct?: Product & { bulk_quantity?: number; bulk_cost?: number }
   editStockItem?: Stock
 }
 
-export function ProductDialog({ open, onClose, branches, profileBranchId, isDirector, editProduct, editStockItem }: Props) {
+export function ProductDialog({ open, onClose, branches, profileBranchId, isDirector, userId, editProduct, editStockItem }: Props) {
   const supabase = createClient()
   const isEditing = !!editProduct
   const [loading, setLoading] = useState(false)
   const [isStar, setIsStar] = useState(editProduct?.is_star ?? false)
+  const [bulkMode, setBulkMode] = useState(!!(editProduct?.bulk_quantity && editProduct.bulk_quantity > 1))
   const [form, setForm] = useState({
     name: editProduct?.name ?? '',
     category: editProduct?.category ?? 'General',
@@ -40,11 +42,27 @@ export function ProductDialog({ open, onClose, branches, profileBranchId, isDire
     branch_id: editStockItem?.branch_id ?? profileBranchId ?? '',
     quantity: editStockItem?.quantity !== undefined ? String(editStockItem.quantity) : '0',
     min_quantity: editStockItem?.min_quantity !== undefined ? String(editStockItem.min_quantity) : '5',
+    bulk_quantity: editProduct?.bulk_quantity ? String(editProduct.bulk_quantity) : '1',
+    bulk_cost: editProduct?.bulk_cost ? String(editProduct.bulk_cost) : '',
   })
 
   function update(key: string, value: string) {
-    setForm((prev) => ({ ...prev, [key]: value }))
+    setForm((prev) => {
+      const updated = { ...prev, [key]: value }
+      // Auto-calcular costo unitario desde bulto
+      if ((key === 'bulk_cost' || key === 'bulk_quantity') && bulkMode) {
+        const bc = parseFloat(key === 'bulk_cost' ? value : updated.bulk_cost)
+        const bq = parseInt(key === 'bulk_quantity' ? value : updated.bulk_quantity)
+        if (bc > 0 && bq > 0) updated.cost_price = String((bc / bq).toFixed(2))
+      }
+      return updated
+    })
   }
+
+  // Margen calculado en tiempo real
+  const margin = form.cost_price && form.sell_price
+    ? Math.round(((parseFloat(form.sell_price) - parseFloat(form.cost_price)) / parseFloat(form.sell_price)) * 100)
+    : null
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -55,18 +73,34 @@ export function ProductDialog({ open, onClose, branches, profileBranchId, isDire
     setLoading(true)
 
     try {
-      if (isEditing && editProduct) {
-        // Actualizar producto existente
-        await supabase.from('products').update({
-          name: form.name,
-          category: form.category,
-          barcode: form.barcode || null,
-          cost_price: parseFloat(form.cost_price) || 0,
-          sell_price: parseFloat(form.sell_price),
-          is_star: isStar,
-        }).eq('id', editProduct.id)
+      const productData = {
+        name: form.name,
+        category: form.category,
+        barcode: form.barcode || null,
+        cost_price: parseFloat(form.cost_price) || 0,
+        sell_price: parseFloat(form.sell_price),
+        is_star: isStar,
+        bulk_quantity: bulkMode ? parseInt(form.bulk_quantity) || 1 : 1,
+        bulk_cost: bulkMode && form.bulk_cost ? parseFloat(form.bulk_cost) : null,
+      }
 
-        // Actualizar stock
+      if (isEditing && editProduct) {
+        // Registrar historial de precios si cambiaron
+        const costChanged = parseFloat(form.cost_price) !== editProduct.cost_price
+        const sellChanged = parseFloat(form.sell_price) !== editProduct.sell_price
+        if (costChanged || sellChanged) {
+          await supabase.from('price_history').insert({
+            product_id: editProduct.id,
+            old_cost_price: editProduct.cost_price,
+            new_cost_price: parseFloat(form.cost_price) || 0,
+            old_sell_price: editProduct.sell_price,
+            new_sell_price: parseFloat(form.sell_price),
+            changed_by: userId,
+          })
+        }
+
+        await supabase.from('products').update(productData).eq('id', editProduct.id)
+
         if (editStockItem) {
           await supabase.from('stock').update({
             quantity: parseInt(form.quantity),
@@ -87,22 +121,9 @@ export function ProductDialog({ open, onClose, branches, profileBranchId, isDire
 
         if (existingProduct) {
           productId = existingProduct.id
-          await supabase.from('products').update({
-            cost_price: parseFloat(form.cost_price) || 0,
-            sell_price: parseFloat(form.sell_price),
-            category: form.category,
-            barcode: form.barcode || null,
-          }).eq('id', productId)
+          await supabase.from('products').update(productData).eq('id', productId)
         } else {
-          const { data: newProduct, error } = await supabase.from('products').insert({
-            name: form.name,
-            category: form.category,
-            barcode: form.barcode || null,
-            cost_price: parseFloat(form.cost_price) || 0,
-            sell_price: parseFloat(form.sell_price),
-            is_star: isStar,
-          }).select().single()
-
+          const { data: newProduct, error } = await supabase.from('products').insert(productData).select().single()
           if (error) throw error
           productId = newProduct.id
         }
@@ -146,10 +167,10 @@ export function ProductDialog({ open, onClose, branches, profileBranchId, isDire
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-base font-semibold">
-            {isEditing ? `Editar producto` : 'Nuevo producto'}
+            {isEditing ? `Editar: ${editProduct.name}` : 'Nuevo producto'}
           </DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 mt-2">
@@ -189,6 +210,49 @@ export function ProductDialog({ open, onClose, branches, profileBranchId, isDire
             </div>
           </div>
 
+          {/* Precio por bulto toggle */}
+          <div className="rounded-lg border border-border overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setBulkMode(!bulkMode)}
+              className="w-full px-3 py-2 flex items-center justify-between text-xs font-medium bg-neutral-50 hover:bg-neutral-100 transition-colors"
+            >
+              <span>📦 Precio por bulto / caja</span>
+              <span className="text-muted-foreground">{bulkMode ? 'Activado ✓' : 'Calcular automático'}</span>
+            </button>
+            {bulkMode && (
+              <div className="p-3 grid grid-cols-2 gap-3 border-t border-border">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Unidades por bulto</Label>
+                  <Input
+                    type="number"
+                    value={form.bulk_quantity}
+                    onChange={(e) => update('bulk_quantity', e.target.value)}
+                    placeholder="24"
+                    min="1"
+                    className="h-9 text-sm"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Precio del bulto ($)</Label>
+                  <Input
+                    type="number"
+                    value={form.bulk_cost}
+                    onChange={(e) => update('bulk_cost', e.target.value)}
+                    placeholder="0"
+                    min="0"
+                    className="h-9 text-sm"
+                  />
+                </div>
+                {form.bulk_cost && form.bulk_quantity && (
+                  <p className="col-span-2 text-xs text-muted-foreground">
+                    → Costo unitario: <strong>${(parseFloat(form.bulk_cost) / parseInt(form.bulk_quantity)).toFixed(2)}</strong> (calculado automático)
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label className="text-xs">Precio costo ($)</Label>
@@ -216,6 +280,14 @@ export function ProductDialog({ open, onClose, branches, profileBranchId, isDire
               />
             </div>
           </div>
+
+          {/* Margen en tiempo real */}
+          {margin !== null && (
+            <div className={cn('text-xs px-3 py-2 rounded-lg', margin >= 30 ? 'bg-green-50 text-green-700' : margin >= 15 ? 'bg-amber-50 text-amber-700' : 'bg-red-50 text-red-700')}>
+              Margen: <strong>{margin}%</strong>
+              {margin < 15 ? ' — bajo, revisá el precio' : margin >= 30 ? ' — buen margen ✓' : ' — margen aceptable'}
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
@@ -256,23 +328,21 @@ export function ProductDialog({ open, onClose, branches, profileBranchId, isDire
             </div>
           )}
 
-          <div className="flex items-center gap-2 py-1">
-            <button
-              type="button"
-              onClick={() => setIsStar(!isStar)}
-              className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-xs transition-colors w-full ${
-                isStar
-                  ? 'border-amber-300 bg-amber-50 text-amber-700'
-                  : 'border-border bg-white text-muted-foreground hover:border-amber-200 hover:text-amber-600'
-              }`}
-            >
-              <span className="text-base">{isStar ? '⭐' : '☆'}</span>
-              <div className="text-left">
-                <p className="font-medium">Producto estrella</p>
-                <p className="text-[11px] opacity-70">No puede faltar nunca — alerta crítica si baja el mínimo</p>
-              </div>
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => setIsStar(!isStar)}
+            className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-xs transition-colors w-full ${
+              isStar
+                ? 'border-amber-300 bg-amber-50 text-amber-700'
+                : 'border-border bg-white text-muted-foreground hover:border-amber-200 hover:text-amber-600'
+            }`}
+          >
+            <span className="text-base">{isStar ? '⭐' : '☆'}</span>
+            <div className="text-left">
+              <p className="font-medium">Producto estrella</p>
+              <p className="text-[11px] opacity-70">No puede faltar nunca — alerta crítica si baja el mínimo</p>
+            </div>
+          </button>
 
           <div className="flex gap-2 pt-2">
             <Button type="button" variant="outline" className="flex-1 h-9 text-sm" onClick={onClose}>
