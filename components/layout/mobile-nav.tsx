@@ -4,14 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import type { Profile } from '@/types'
-import {
-  LayoutDashboard,
-  ShoppingCart,
-  Package,
-  Wallet,
-  Truck,
-  Bell,
-} from 'lucide-react'
+import { LayoutDashboard, ShoppingCart, Package, Wallet, Truck, Bell } from 'lucide-react'
 
 const navItems = [
   { href: '/', label: 'Inicio', icon: LayoutDashboard, roles: ['director', 'admin', 'empleado'], exact: true },
@@ -22,39 +15,41 @@ const navItems = [
   { href: '/alerts', label: 'Alertas', icon: Bell, roles: ['director', 'admin'] },
 ]
 
-interface Props {
-  profile: Profile
-}
+interface Props { profile: Profile }
 
 export function MobileNav({ profile }: Props) {
   const pathname = usePathname()
 
   const visibleItems = navItems
-    .filter((item) => item.roles.includes(profile.role))
-    .slice(0, 5) // max 5 items in bottom nav
+    .filter(item => item.roles.includes(profile.role))
+    .slice(0, 5)
 
   return (
-    <nav
-      className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-border"
-      style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
-    >
+    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40"
+      style={{
+        paddingBottom: 'env(safe-area-inset-bottom)',
+        background: 'rgba(255,255,255,0.85)',
+        backdropFilter: 'saturate(180%) blur(20px)',
+        WebkitBackdropFilter: 'saturate(180%) blur(20px)',
+        borderTop: '1px solid rgba(0,0,0,0.08)',
+      }}>
       <div className="flex">
         {visibleItems.map((item) => {
-          const isActive = item.exact ? pathname === item.href : pathname.startsWith(item.href)
+          const active = item.exact ? pathname === item.href : pathname.startsWith(item.href)
           return (
             <Link
               key={item.href}
               href={item.href}
-              className={cn(
-                'flex-1 flex flex-col items-center justify-center py-2 gap-0.5 text-[10px] font-medium transition-colors min-h-[52px]',
-                isActive ? 'text-neutral-900' : 'text-neutral-400'
-              )}
+              className="flex-1 flex flex-col items-center justify-center py-2 gap-1 min-h-[52px] transition-colors"
             >
               <item.icon
-                className={cn('w-5 h-5', isActive ? 'text-neutral-900' : 'text-neutral-400')}
-                strokeWidth={isActive ? 2.5 : 1.5}
+                className={cn('w-5 h-5')}
+                style={{ color: active ? '#1C2B23' : '#86868B' }}
+                strokeWidth={active ? 2.5 : 1.75}
               />
-              {item.label}
+              <span className="text-[10px] font-medium" style={{ color: active ? '#1C2B23' : '#86868B' }}>
+                {item.label}
+              </span>
             </Link>
           )
         })}

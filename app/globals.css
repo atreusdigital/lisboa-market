@@ -39,89 +39,53 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
+  --radius-sm: calc(var(--radius) * 0.5);
+  --radius-md: calc(var(--radius) * 0.75);
   --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
+  --radius-xl: calc(var(--radius) * 1.5);
+  --radius-2xl: calc(var(--radius) * 2);
+  --radius-3xl: calc(var(--radius) * 2.5);
 }
 
 :root {
-  /* Lisboa Market — Paleta: Blanco + Verde Oscuro del logo (#1C2B23) */
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.18 0.025 155);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.18 0.025 155);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.18 0.025 155);
-  --primary: oklch(0.21 0.030 155);      /* Verde oscuro logo #1C2B23 */
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.96 0.008 155);    /* Verde muy claro */
-  --secondary-foreground: oklch(0.21 0.030 155);
-  --muted: oklch(0.96 0.006 155);
-  --muted-foreground: oklch(0.52 0.020 155);
-  --accent: oklch(0.93 0.015 155);       /* Verde tenue para hover */
-  --accent-foreground: oklch(0.21 0.030 155);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.91 0.010 155);
-  --input: oklch(0.91 0.010 155);
-  --ring: oklch(0.35 0.040 155);
-  --chart-1: oklch(0.21 0.030 155);      /* Verde oscuro */
-  --chart-2: oklch(0.35 0.045 155);      /* Verde medio */
-  --chart-3: oklch(0.50 0.040 155);      /* Verde */
-  --chart-4: oklch(0.65 0.035 155);      /* Verde claro */
-  --chart-5: oklch(0.82 0.020 155);      /* Verde muy claro */
-  --radius: 0.625rem;
-  --sidebar: oklch(0.21 0.030 155);      /* Sidebar verde oscuro */
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.985 0 0);
-  --sidebar-primary-foreground: oklch(0.21 0.030 155);
-  --sidebar-accent: oklch(0.28 0.035 155);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(0.28 0.035 155);
-  --sidebar-ring: oklch(0.50 0.040 155);
+  /* Lisboa Market — Apple-inspired */
+  --background: #F5F5F7;            /* Apple signature gray */
+  --foreground: #1D1D1F;            /* Apple near-black */
+  --card: #FFFFFF;
+  --card-foreground: #1D1D1F;
+  --popover: #FFFFFF;
+  --popover-foreground: #1D1D1F;
+  --primary: #1C2B23;               /* Lisboa Green */
+  --primary-foreground: #FFFFFF;
+  --secondary: #F5F5F7;
+  --secondary-foreground: #1D1D1F;
+  --muted: #F5F5F7;
+  --muted-foreground: #86868B;      /* Apple secondary text */
+  --accent: #E8F2ED;
+  --accent-foreground: #1C2B23;
+  --destructive: #FF3B30;           /* Apple red */
+  --border: rgba(0,0,0,0.08);
+  --input: rgba(0,0,0,0.06);
+  --ring: #1C2B23;
+  --chart-1: #1C2B23;
+  --chart-2: #34C759;
+  --chart-3: #007AFF;
+  --chart-4: #FF9500;
+  --chart-5: #FF3B30;
+  --radius: 1rem;                   /* 16px — Apple card radius */
+  --sidebar: #1D1D1F;
+  --sidebar-foreground: #FFFFFF;
+  --sidebar-primary: #FFFFFF;
+  --sidebar-primary-foreground: #1D1D1F;
+  --sidebar-accent: rgba(255,255,255,0.08);
+  --sidebar-accent-foreground: #FFFFFF;
+  --sidebar-border: rgba(255,255,255,0.06);
+  --sidebar-ring: rgba(255,255,255,0.2);
 
-  /* Tokens de marca */
-  --lisboa-green: #1C2B23;
-  --lisboa-green-light: #2D4A3E;
-  --lisboa-green-muted: #E8F2ED;
-  --lisboa-white: #FFFFFF;
-}
-
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  /* Card shadow — Apple style */
+  --shadow-card: 0 2px 8px rgba(0,0,0,0.06), 0 0 1px rgba(0,0,0,0.04);
+  --shadow-elevated: 0 8px 32px rgba(0,0,0,0.10), 0 0 1px rgba(0,0,0,0.06);
+  --shadow-modal: 0 24px 64px rgba(0,0,0,0.18), 0 0 1px rgba(0,0,0,0.08);
 }
 
 @layer base {
@@ -130,8 +94,39 @@
   }
   body {
     @apply bg-background text-foreground;
+    font-feature-settings: "kern" 1, "liga" 1, "calt" 1;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
   html {
     @apply font-sans;
   }
+}
+
+/* Apple-style card */
+.apple-card {
+  background: #FFFFFF;
+  border-radius: 18px;
+  box-shadow: var(--shadow-card);
+  border: none;
+}
+
+/* Apple-style glass */
+.apple-glass {
+  background: rgba(255,255,255,0.72);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  border: 1px solid rgba(255,255,255,0.3);
+}
+
+/* Smooth transitions everywhere */
+* {
+  transition-property: color, background-color, border-color, box-shadow, opacity, transform;
+  transition-duration: 150ms;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Number font feature */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
 }

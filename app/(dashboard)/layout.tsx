@@ -31,7 +31,7 @@ export default async function DashboardLayout({
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-neutral-50">
+    <div className="flex h-screen overflow-hidden" style={{ background: '#F5F5F7' }}>
       {/* Sidebar solo en desktop */}
       <div className="hidden md:flex">
         <Sidebar profile={profile as Profile} />
