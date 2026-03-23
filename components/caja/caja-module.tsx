@@ -434,7 +434,7 @@ export function CajaModule({
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label className="text-xs">Categoría</Label>
-                <Select value={expenseForm.category} onValueChange={v => setExpenseForm(p => ({ ...p, category: v }))}>
+                <Select value={expenseForm.category} onValueChange={v => setExpenseForm(p => ({ ...p, category: v ?? 'otros' }))}>
                   <SelectTrigger className="h-9 text-xs">
                     <SelectValue />
                   </SelectTrigger>

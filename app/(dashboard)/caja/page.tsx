@@ -24,7 +24,7 @@ export default async function CajaPage() {
     { data: recentShifts },
     { count: alertCount },
   ] = await Promise.all([
-    supabase.from('branches').select('id, name'),
+    supabase.from('branches').select('id, name, address, created_at'),
     supabase.from('shifts')
       .select('*, user:profiles(full_name)')
       .eq('status', 'open')
