@@ -8,10 +8,11 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Search, Plus, AlertTriangle, Camera, History, Pencil } from 'lucide-react'
+import { Search, Plus, AlertTriangle, Camera, History, Pencil, Upload } from 'lucide-react'
 import { ProductDialog } from './product-dialog'
 import { ScanDeliveryDialog } from './scan-delivery-dialog'
 import { StockMovementsDialog } from './stock-movements-dialog'
+import { BulkImportDialog } from './bulk-import-dialog'
 import { cn } from '@/lib/utils'
 
 interface Props {
@@ -27,6 +28,7 @@ export function StockModule({ stockItems, branches, products, profile }: Props) 
   const [statusFilter, setStatusFilter] = useState('all')
   const [showProductDialog, setShowProductDialog] = useState(false)
   const [showScanDialog, setShowScanDialog] = useState(false)
+  const [showBulkImport, setShowBulkImport] = useState(false)
   const [movementsItem, setMovementsItem] = useState<Stock | null>(null)
   const [editItem, setEditItem] = useState<Stock | null>(null)
   const [starFilter, setStarFilter] = useState(false)
@@ -69,6 +71,15 @@ export function StockModule({ stockItems, branches, products, profile }: Props) 
         </div>
         {isAdmin && (
           <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowBulkImport(true)}
+              className="h-8 text-xs gap-1.5"
+            >
+              <Upload className="w-3.5 h-3.5" />
+              Importar CSV
+            </Button>
             <Button
               variant="outline"
               size="sm"
@@ -277,6 +288,16 @@ export function StockModule({ stockItems, branches, products, profile }: Props) 
           onClose={() => setMovementsItem(null)}
           stockItem={movementsItem}
           profile={profile}
+        />
+      )}
+
+      {showBulkImport && (
+        <BulkImportDialog
+          open={showBulkImport}
+          onClose={() => setShowBulkImport(false)}
+          branches={branches}
+          profileBranchId={profile.branch_id}
+          isDirector={profile.role === 'director'}
         />
       )}
     </div>
