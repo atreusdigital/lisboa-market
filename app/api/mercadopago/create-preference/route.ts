@@ -45,8 +45,9 @@ export async function POST(request: NextRequest) {
       init_point: paymentUrl,
       is_sandbox: isSandbox,
     })
-  } catch (error) {
-    console.error('MP create preference error:', error)
-    return NextResponse.json({ error: 'Error al crear preferencia de pago' }, { status: 500 })
+  } catch (error: any) {
+    console.error('MP create preference error:', JSON.stringify(error, null, 2))
+    const msg = error?.message ?? error?.cause?.message ?? JSON.stringify(error)
+    return NextResponse.json({ error: msg }, { status: 500 })
   }
 }

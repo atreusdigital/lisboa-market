@@ -22,6 +22,7 @@ export function MPPaymentModal({ externalReference, items, total, onSuccess, onC
   const [initPoint, setInitPoint] = useState<string | null>(null)
   const [isSandbox, setIsSandbox] = useState(false)
   const [paymentId, setPaymentId] = useState<string | null>(null)
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [elapsed, setElapsed] = useState(0)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -46,15 +47,16 @@ export function MPPaymentModal({ externalReference, items, total, onSuccess, onC
         body: JSON.stringify({ items, external_reference: externalReference }),
       })
       const data = await res.json()
-      if (!res.ok || !data.init_point) throw new Error(data.error ?? 'Error al crear preferencia')
+      if (!res.ok || !data.init_point) throw new Error(data.error ?? `HTTP ${res.status}`)
 
       setInitPoint(data.init_point)
       setIsSandbox(data.is_sandbox ?? false)
       setStatus('waiting')
       startPolling()
       startTimer()
-    } catch (err) {
+    } catch (err: any) {
       console.error(err)
+      setErrorMsg(err?.message ?? 'Error desconocido')
       setStatus('error')
     }
   }
@@ -240,6 +242,9 @@ export function MPPaymentModal({ externalReference, items, total, onSuccess, onC
               <XCircle className="w-16 h-16 text-neutral-300" />
               <div className="text-center">
                 <p className="font-semibold">Error al generar el pago</p>
+                {errorMsg && (
+                  <p className="text-xs text-red-600 mt-1 font-mono break-all">{errorMsg}</p>
+                )}
                 <p className="text-sm text-muted-foreground mt-1">Verificá la conexión y reintentá</p>
               </div>
               <div className="flex gap-2 w-full">
