@@ -62,7 +62,7 @@ ${stockItems?.slice(0, 20).map((s) => {
   return (
     <>
       <Header title="Asistente IA" alertCount={alertCount ?? 0} />
-      <div className="p-6">
+      <div className="p-4 md:p-6">
         <AIAssistant context={context} profile={profile} />
       </div>
     </>

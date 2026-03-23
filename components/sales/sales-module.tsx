@@ -101,13 +101,13 @@ export function SalesModule({ sales, branches, profile }: Props) {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-neutral-50">
-                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">#</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Fecha y hora</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Sucursal</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Vendedor</th>
-                <th className="text-center px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Productos</th>
-                <th className="text-center px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Pago</th>
-                <th className="text-right px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Total</th>
+                <th className="text-left px-3 md:px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">#</th>
+                <th className="text-left px-3 md:px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Fecha</th>
+                <th className="hidden md:table-cell text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Sucursal</th>
+                <th className="hidden sm:table-cell text-left px-3 md:px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Vendedor</th>
+                <th className="hidden md:table-cell text-center px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Productos</th>
+                <th className="text-center px-3 md:px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Pago</th>
+                <th className="text-right px-3 md:px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Total</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -120,55 +120,55 @@ export function SalesModule({ sales, branches, profile }: Props) {
               ) : (
                 filtered.map((sale) => (
                   <tr key={sale.id} className="hover:bg-neutral-50 transition-colors cursor-pointer group">
-                    <td className="px-4 py-3">
+                    <td className="px-3 md:px-4 py-3">
                       <Link href={`/sales/${sale.id}`} className="block">
                         <span className="text-xs font-mono text-muted-foreground group-hover:text-foreground transition-colors">
-                          #{sale.id.slice(0, 8).toUpperCase()}
+                          #{sale.id.slice(0, 6).toUpperCase()}
                         </span>
                       </Link>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-3 md:px-4 py-3">
                       <Link href={`/sales/${sale.id}`} className="block">
                         <p className="text-xs font-medium">
-                          {new Date(sale.created_at).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                          {new Date(sale.created_at).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' })}
                         </p>
                         <p className="text-xs text-muted-foreground">
                           {new Date(sale.created_at).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}
                         </p>
                       </Link>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="hidden md:table-cell px-4 py-3">
                       <Link href={`/sales/${sale.id}`} className="block text-sm text-muted-foreground">
                         {sale.branch?.name ?? '—'}
                       </Link>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="hidden sm:table-cell px-3 md:px-4 py-3">
                       <Link href={`/sales/${sale.id}`} className="block text-sm">
                         {sale.user?.full_name ?? '—'}
                       </Link>
                     </td>
-                    <td className="px-4 py-3 text-center">
+                    <td className="hidden md:table-cell px-4 py-3 text-center">
                       <Link href={`/sales/${sale.id}`} className="block">
                         <Badge variant="outline" className="text-xs tabular-nums">
                           {sale.items?.length ?? 0} ítem{(sale.items?.length ?? 0) !== 1 ? 's' : ''}
                         </Badge>
                       </Link>
                     </td>
-                    <td className="px-4 py-3 text-center">
+                    <td className="px-3 md:px-4 py-3 text-center">
                       <Link href={`/sales/${sale.id}`} className="block">
                         {sale.payment_method === 'efectivo' ? (
                           <span className="inline-flex items-center gap-1 text-xs text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
-                            <Banknote className="w-3 h-3" /> Efectivo
+                            <Banknote className="w-3 h-3" /><span className="hidden sm:inline">Efectivo</span>
                           </span>
                         ) : (
                           <span className="inline-flex items-center gap-1 text-xs text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full">
-                            <CreditCard className="w-3 h-3" /> MercadoPago
+                            <CreditCard className="w-3 h-3" /><span className="hidden sm:inline">MercadoPago</span>
                           </span>
                         )}
                       </Link>
                     </td>
-                    <td className="px-4 py-3 text-right">
-                      <Link href={`/sales/${sale.id}`} className="block font-semibold tabular-nums">
+                    <td className="px-3 md:px-4 py-3 text-right">
+                      <Link href={`/sales/${sale.id}`} className="block font-semibold tabular-nums text-sm">
                         {formatCurrency(sale.total)}
                       </Link>
                     </td>

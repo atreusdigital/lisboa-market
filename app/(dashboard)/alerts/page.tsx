@@ -33,7 +33,7 @@ export default async function AlertsPage() {
   return (
     <>
       <Header title="Alertas" alertCount={alertCount ?? 0} />
-      <div className="p-6">
+      <div className="p-4 md:p-6">
         <AlertsModule alerts={alerts ?? []} profile={profile} />
       </div>
     </>

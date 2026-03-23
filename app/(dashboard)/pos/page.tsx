@@ -32,7 +32,7 @@ export default async function POSPage() {
   return (
     <>
       <Header title="Punto de Venta" alertCount={alertCount ?? 0} />
-      <div className="p-6">
+      <div className="p-4 md:p-6">
         <POSInterface
           stockItems={stockItems ?? []}
           branches={branches ?? []}

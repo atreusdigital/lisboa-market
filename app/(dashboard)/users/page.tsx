@@ -36,7 +36,7 @@ export default async function UsersPage() {
   return (
     <>
       <Header title="Usuarios y actividad" alertCount={alertCount ?? 0} />
-      <div className="p-6">
+      <div className="p-4 md:p-6">
         <UsersModule
           users={users ?? []}
           branches={branches ?? []}

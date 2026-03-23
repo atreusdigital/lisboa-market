@@ -91,7 +91,7 @@ export default async function DashboardPage() {
   return (
     <>
       <Header title={titles[profile.role]} alertCount={alertCount ?? 0} />
-      <div className="p-6">
+      <div className="p-4 md:p-6">
         {profile.role === 'director' && (
           <DashboardDirector profile={profile as Profile} stats={stats} />
         )}

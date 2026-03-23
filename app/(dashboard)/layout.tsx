@@ -1,6 +1,8 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { Sidebar } from '@/components/layout/sidebar'
+import { MobileNav } from '@/components/layout/mobile-nav'
+import { AIBubble } from '@/components/ai/ai-bubble'
 import type { Profile } from '@/types'
 
 export default async function DashboardLayout({
@@ -30,10 +32,21 @@ export default async function DashboardLayout({
 
   return (
     <div className="flex h-screen overflow-hidden bg-neutral-50">
-      <Sidebar profile={profile as Profile} />
-      <main className="flex-1 overflow-y-auto">
+      {/* Sidebar solo en desktop */}
+      <div className="hidden md:flex">
+        <Sidebar profile={profile as Profile} />
+      </div>
+
+      {/* Contenido principal */}
+      <main className="flex-1 overflow-y-auto pb-16 md:pb-0">
         {children}
       </main>
+
+      {/* Bottom nav en mobile */}
+      <MobileNav profile={profile as Profile} />
+
+      {/* AI Bubble */}
+      <AIBubble />
     </div>
   )
 }

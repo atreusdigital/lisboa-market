@@ -47,7 +47,7 @@ export default async function AnalyticsPage() {
   return (
     <>
       <Header title="Reportes y Analytics" alertCount={alertCount ?? 0} />
-      <div className="p-6">
+      <div className="p-4 md:p-6">
         <AnalyticsModule
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           sales={(sales ?? []) as any}

@@ -70,7 +70,7 @@ ${stockItems?.filter((s) => s.quantity <= s.min_quantity).map((s) => {
   return (
     <>
       <Header title="Radar de ventas" alertCount={alertCount ?? 0} />
-      <div className="p-6">
+      <div className="p-4 md:p-6">
         <RadarClient
           context={context}
           topProducts={topProducts}

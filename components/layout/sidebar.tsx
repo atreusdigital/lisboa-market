@@ -13,7 +13,6 @@ import {
   BarChart3,
   Users,
   LogOut,
-  Bot,
   TrendingUp,
   ClipboardList,
   Receipt,
@@ -23,9 +22,9 @@ import { useRouter } from 'next/navigation'
 
 const navItems = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard, roles: ['director', 'admin', 'empleado'] },
+  { href: '/sales', label: 'Ventas', icon: Receipt, roles: ['director', 'admin'] },
   { href: '/pos', label: 'Punto de Venta', icon: ShoppingCart, roles: ['director', 'admin', 'empleado'] },
   { href: '/stock', label: 'Stock', icon: Package, roles: ['director', 'admin', 'empleado'] },
-  { href: '/sales', label: 'Ventas', icon: Receipt, roles: ['director', 'admin'] },
   { href: '/suppliers', label: 'Proveedores', icon: Truck, roles: ['director', 'admin'] },
   { href: '/alerts', label: 'Alertas', icon: Bell, roles: ['director', 'admin'] },
   { href: '/analytics', label: 'Reportes', icon: BarChart3, roles: ['director', 'admin'] },
@@ -33,7 +32,6 @@ const navItems = [
 ]
 
 const aiItems = [
-  { href: '/ai/assistant', label: 'Asistente IA', icon: Bot, roles: ['director', 'admin'] },
   { href: '/ai/radar', label: 'Radar de ventas', icon: TrendingUp, roles: ['director', 'admin'] },
   { href: '/ai/reorder', label: 'Plan de reposición', icon: ClipboardList, roles: ['director', 'admin'] },
 ]
@@ -97,7 +95,7 @@ export function Sidebar({ profile }: SidebarProps) {
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 px-3 py-4 overflow-y-auto space-y-4">
+      <nav className="flex-1 px-3 py-4 overflow-y-auto flex flex-col gap-4">
         <ul className="space-y-0.5">
           {visibleItems.map((item) => {
             const isActive = pathname === item.href
@@ -119,6 +117,9 @@ export function Sidebar({ profile }: SidebarProps) {
             )
           })}
         </ul>
+
+        {/* Spacer empuja IA al fondo */}
+        <div className="flex-1" />
 
         {visibleAiItems.length > 0 && (
           <div>

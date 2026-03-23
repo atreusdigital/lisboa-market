@@ -34,7 +34,7 @@ export default async function SalesPage() {
   return (
     <>
       <Header title="Ventas" alertCount={alertCount ?? 0} />
-      <div className="p-6">
+      <div className="p-4 md:p-6">
         <SalesModule sales={sales ?? []} branches={branches ?? []} profile={profile} />
       </div>
     </>

@@ -49,7 +49,7 @@ export default async function SuppliersPage() {
   return (
     <>
       <Header title="Proveedores" alertCount={alertCount ?? 0} />
-      <div className="p-6">
+      <div className="p-4 md:p-6">
         <SuppliersModule
           suppliers={suppliers ?? []}
           orders={orders ?? []}

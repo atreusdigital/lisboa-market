@@ -66,7 +66,7 @@ PROVEEDORES DISPONIBLES: ${suppliers?.map((s) => s.name).join(', ')}
   return (
     <>
       <Header title="Plan de reposición" alertCount={alertCount ?? 0} />
-      <div className="p-6">
+      <div className="p-4 md:p-6">
         {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
         <ReorderClient context={context} stockItems={(stockItems ?? []) as any[]} salesVelocity={salesVelocity} />
       </div>

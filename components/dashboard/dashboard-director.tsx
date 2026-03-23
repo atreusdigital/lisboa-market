@@ -23,7 +23,7 @@ export function DashboardDirector({ profile, stats }: Props) {
         <p className="text-sm text-muted-foreground">Resumen general de hoy — todas las sucursales</p>
       </div>
 
-      <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-2 xl:grid-cols-4 gap-3 md:gap-4">
         <StatsCard
           title="Ventas hoy"
           value={stats.total_sales_today}
@@ -54,7 +54,7 @@ export function DashboardDirector({ profile, stats }: Props) {
       </div>
 
       {/* Quick actions */}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
         <Card className="p-5 border-border bg-white">
           <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Pedidos pendientes</p>
           <p className="text-2xl font-semibold">{stats.pending_orders}</p>

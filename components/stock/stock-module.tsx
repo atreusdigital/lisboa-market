@@ -141,17 +141,17 @@ export function StockModule({ stockItems, branches, products, profile }: Props) 
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-neutral-50">
-                <th className="px-4 py-3 w-8"></th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Producto</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Categoría</th>
+                <th className="px-3 md:px-4 py-3 w-8"></th>
+                <th className="text-left px-3 md:px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Producto</th>
+                <th className="hidden md:table-cell text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Categoría</th>
                 {profile.role === 'director' && (
-                  <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Sucursal</th>
+                  <th className="hidden md:table-cell text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Sucursal</th>
                 )}
-                <th className="text-right px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Stock</th>
-                <th className="text-right px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Mínimo</th>
-                <th className="text-right px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Precio venta</th>
-                <th className="text-center px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Estado</th>
-                <th className="px-4 py-3"></th>
+                <th className="text-right px-3 md:px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Stock</th>
+                <th className="hidden sm:table-cell text-right px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Mínimo</th>
+                <th className="hidden sm:table-cell text-right px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Precio</th>
+                <th className="text-center px-3 md:px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Estado</th>
+                <th className="px-3 md:px-4 py-3"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -167,7 +167,7 @@ export function StockModule({ stockItems, branches, products, profile }: Props) 
                   const isCritical = item.quantity === 0
                   return (
                     <tr key={item.id} className={cn('hover:bg-neutral-50 transition-colors', isLow && 'bg-red-50/30')}>
-                      <td className="px-4 py-3 text-center">
+                      <td className="px-3 md:px-4 py-3 text-center">
                         <button
                           onClick={() => toggleStar(item.product_id, item.product?.is_star ?? false)}
                           className="text-base leading-none opacity-60 hover:opacity-100 transition-opacity"
@@ -176,24 +176,24 @@ export function StockModule({ stockItems, branches, products, profile }: Props) 
                           {item.product?.is_star ? '⭐' : '☆'}
                         </button>
                       </td>
-                      <td className="px-4 py-3 font-medium">
+                      <td className="px-3 md:px-4 py-3 font-medium text-sm">
                         <div className="flex items-center gap-2">
                           {isLow && <AlertTriangle className="w-3.5 h-3.5 text-red-500 shrink-0" />}
-                          {item.product?.name}
+                          <span className="leading-tight">{item.product?.name}</span>
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-muted-foreground">{item.product?.category}</td>
+                      <td className="hidden md:table-cell px-4 py-3 text-sm text-muted-foreground">{item.product?.category}</td>
                       {profile.role === 'director' && (
-                        <td className="px-4 py-3 text-muted-foreground">{item.branch?.name}</td>
+                        <td className="hidden md:table-cell px-4 py-3 text-sm text-muted-foreground">{item.branch?.name}</td>
                       )}
-                      <td className={cn('px-4 py-3 text-right font-medium tabular-nums', isCritical && 'text-red-600', isLow && !isCritical && 'text-amber-600')}>
+                      <td className={cn('px-3 md:px-4 py-3 text-right font-medium tabular-nums', isCritical && 'text-red-600', isLow && !isCritical && 'text-amber-600')}>
                         {item.quantity}
                       </td>
-                      <td className="px-4 py-3 text-right text-muted-foreground tabular-nums">{item.min_quantity}</td>
-                      <td className="px-4 py-3 text-right tabular-nums">
+                      <td className="hidden sm:table-cell px-4 py-3 text-right text-muted-foreground tabular-nums">{item.min_quantity}</td>
+                      <td className="hidden sm:table-cell px-4 py-3 text-right tabular-nums">
                         {new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 0 }).format(item.product?.sell_price ?? 0)}
                       </td>
-                      <td className="px-4 py-3 text-center">
+                      <td className="px-3 md:px-4 py-3 text-center">
                         <Badge
                           variant="outline"
                           className={cn(
@@ -203,10 +203,10 @@ export function StockModule({ stockItems, branches, products, profile }: Props) 
                             'bg-emerald-100 text-emerald-700'
                           )}
                         >
-                          {isCritical ? 'Sin stock' : isLow ? 'Stock bajo' : 'OK'}
+                          {isCritical ? 'Sin stock' : isLow ? 'Bajo' : 'OK'}
                         </Badge>
                       </td>
-                      <td className="px-4 py-3 text-right">
+                      <td className="px-3 md:px-4 py-3 text-right">
                         <button
                           onClick={() => setMovementsItem(item)}
                           className="p-1.5 rounded hover:bg-neutral-100 transition-colors text-muted-foreground hover:text-foreground"

@@ -1,11 +1,11 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Bell } from 'lucide-react'
+import { Bell, Users } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { createClient } from '@/lib/supabase/client'
-import { cn } from '@/lib/utils'
+import Link from 'next/link'
 
 interface AlertItem {
   id: string
@@ -15,10 +15,14 @@ interface AlertItem {
   created_at: string
 }
 
+interface UserProfile {
+  full_name: string
+  role: string
+}
+
 interface HeaderProps {
   title: string
   alertCount?: number
-  userId?: string
 }
 
 const alertTypeLabel: Record<string, string> = {
@@ -29,11 +33,32 @@ const alertTypeLabel: Record<string, string> = {
   cash_anomaly: 'Anomalía de caja',
 }
 
-export function Header({ title, alertCount = 0, userId }: HeaderProps) {
+const roleLabels: Record<string, string> = {
+  director: 'Dueño',
+  admin: 'Encargado',
+  empleado: 'Empleado',
+}
+
+export function Header({ title, alertCount = 0 }: HeaderProps) {
   const [open, setOpen] = useState(false)
   const [alerts, setAlerts] = useState<AlertItem[]>([])
   const [loading, setLoading] = useState(false)
+  const [profile, setProfile] = useState<UserProfile | null>(null)
   const supabase = createClient()
+
+  useEffect(() => {
+    async function loadProfile() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      const { data } = await supabase
+        .from('profiles')
+        .select('full_name, role')
+        .eq('id', user.id)
+        .single()
+      if (data) setProfile(data)
+    }
+    loadProfile()
+  }, [])
 
   async function loadAlerts() {
     setLoading(true)
@@ -53,9 +78,10 @@ export function Header({ title, alertCount = 0, userId }: HeaderProps) {
   }
 
   return (
-    <header className="h-14 border-b border-border flex items-center justify-between px-6 bg-white sticky top-0 z-10">
+    <header className="h-14 border-b border-border flex items-center justify-between px-4 md:px-6 bg-white sticky top-0 z-10">
       <h1 className="text-sm font-semibold">{title}</h1>
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2">
+        {/* Bell */}
         <Popover open={open} onOpenChange={(v) => { setOpen(v); if (v) loadAlerts() }}>
           <PopoverTrigger className="relative p-2 rounded-md hover:bg-neutral-100 transition-colors">
             <Bell className="w-4 h-4 text-neutral-600" />
@@ -108,6 +134,35 @@ export function Header({ title, alertCount = 0, userId }: HeaderProps) {
             )}
           </PopoverContent>
         </Popover>
+
+        {/* Divider */}
+        <div className="w-px h-5 bg-border mx-1" />
+
+        {/* Users link (solo directors) */}
+        {profile?.role === 'director' && (
+          <Link
+            href="/users"
+            className="p-2 rounded-md hover:bg-neutral-100 transition-colors"
+            title="Usuarios"
+          >
+            <Users className="w-4 h-4 text-neutral-600" />
+          </Link>
+        )}
+
+        {/* Avatar + nombre */}
+        {profile && (
+          <div className="flex items-center gap-2 pl-1">
+            <div className="w-7 h-7 rounded-full bg-neutral-900 flex items-center justify-center shrink-0">
+              <span className="text-[11px] font-semibold text-white">
+                {profile.full_name.charAt(0).toUpperCase()}
+              </span>
+            </div>
+            <div className="hidden sm:block leading-tight">
+              <p className="text-xs font-medium text-neutral-900 leading-none">{profile.full_name.split(' ')[0]}</p>
+              <p className="text-[10px] text-muted-foreground">{roleLabels[profile.role] ?? profile.role}</p>
+            </div>
+          </div>
+        )}
       </div>
     </header>
   )

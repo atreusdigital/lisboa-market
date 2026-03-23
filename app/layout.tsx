@@ -11,6 +11,18 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "Lisboa Market",
   description: "Sistema de gestión Lisboa Market",
+  viewport: {
+    width: 'device-width',
+    initialScale: 1,
+    maximumScale: 1,
+    userScalable: false,
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'Lisboa Market',
+  },
+  themeColor: '#1C2B23',
 }
 
 export default function RootLayout({
