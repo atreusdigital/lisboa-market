@@ -19,52 +19,78 @@ interface Props {
 }
 
 interface ParsedRow {
+  barcode: string
   name: string
   category: string
-  barcode: string
-  cost_price: number
+  subcategory: string
   sell_price: number
-  quantity: number
+  pedidos_ya_price: number
+  rappi_price: number
+  cost_price: number
   min_quantity: number
+  quantity: number
   error?: string
 }
 
-const TEMPLATE_CSV = `nombre,categoria,codigo_barras,precio_costo,precio_venta,stock_actual,stock_minimo
-Coca Cola 500ml,Bebidas,7790895000122,500,900,24,6
-Sprite 500ml,Bebidas,7790895000139,480,850,12,6
-Alfajor Oreo,Golosinas,7622210678690,250,450,30,10
+const TEMPLATE_CSV = `Codigo,Descripcion,categoria,subcategoria,Lista Mostrador,Lista PedidosYa,Lista Rappi,Costo,Rentabilidad,Stock Minimo,Ult. Modificacion Precio,Ult. Modificacion Costo,Stock,Mov Stock
+7790895000122,Coca Cola 500ml,Bebidas,,900,1170,,500,,6,,,24,
+7790895000139,Sprite 500ml,Bebidas,,850,1105,,480,,6,,,12,
+7622210678690,Alfajor Oreo,Golosinas,,450,585,,250,,10,,,30,
 `
+
+function parseNum(val: string | undefined): number {
+  if (!val || val.trim() === '') return 0
+  const n = parseFloat(val.trim().replace(',', '.'))
+  return isNaN(n) ? 0 : n
+}
 
 function parseCSV(text: string): ParsedRow[] {
   const lines = text.trim().split('\n').filter(Boolean)
   if (lines.length < 2) return []
 
-  // Detect separator (comma or semicolon)
   const sep = lines[0].includes(';') ? ';' : ','
 
-  // Skip header
   return lines.slice(1).map((line, i) => {
     const cols = line.split(sep).map((c) => c.trim().replace(/^"|"$/g, ''))
-    const [name, category, barcode, cost_price_raw, sell_price_raw, quantity_raw, min_quantity_raw] = cols
+    const [
+      barcode,
+      name,
+      category,
+      subcategory,
+      sell_price_raw,
+      pedidos_ya_raw,
+      rappi_raw,
+      cost_raw,
+      , // Rentabilidad — ignorado
+      min_qty_raw,
+      , // Ult. Modificacion Precio — ignorado
+      , // Ult. Modificacion Costo — ignorado
+      qty_raw,
+      , // Mov Stock — ignorado
+    ] = cols
 
-    const cost_price = parseFloat(cost_price_raw?.replace(',', '.') ?? '0')
-    const sell_price = parseFloat(sell_price_raw?.replace(',', '.') ?? '0')
-    const quantity = parseInt(quantity_raw ?? '0')
-    const min_quantity = parseInt(min_quantity_raw ?? '0')
+    const sell_price = parseNum(sell_price_raw)
+    const pedidos_ya_price = parseNum(pedidos_ya_raw)
+    const rappi_price = parseNum(rappi_raw)
+    const cost_price = parseNum(cost_raw)
+    const min_quantity = parseInt(min_qty_raw ?? '0') || 0
+    const quantity = parseInt(qty_raw ?? '0') || 0
 
     const errors: string[] = []
-    if (!name) errors.push('nombre requerido')
-    if (isNaN(sell_price) || sell_price <= 0) errors.push('precio venta inválido')
-    if (isNaN(quantity)) errors.push('stock inválido')
+    if (!name) errors.push('Descripcion requerida')
+    if (sell_price <= 0) errors.push('Lista Mostrador inválida')
 
     return {
+      barcode: barcode ?? '',
       name: name ?? `Fila ${i + 2}`,
       category: category ?? '',
-      barcode: barcode ?? '',
-      cost_price: isNaN(cost_price) ? 0 : cost_price,
-      sell_price: isNaN(sell_price) ? 0 : sell_price,
-      quantity: isNaN(quantity) ? 0 : quantity,
-      min_quantity: isNaN(min_quantity) ? 0 : min_quantity,
+      subcategory: subcategory ?? '',
+      sell_price,
+      pedidos_ya_price,
+      rappi_price,
+      cost_price,
+      min_quantity,
+      quantity,
       error: errors.length > 0 ? errors.join(', ') : undefined,
     }
   })
@@ -115,34 +141,33 @@ export function BulkImportDialog({ open, onClose, branches, profileBranchId, isD
     let count = 0
 
     for (const row of validRows) {
-      // Upsert product by name (or barcode if provided)
       let productId: string | null = null
 
-      // Check if product with same name exists
-      const { data: existing } = await supabase
-        .from('products')
-        .select('id')
-        .eq('name', row.name)
-        .maybeSingle()
+      // Check by barcode first, then by name
+      const lookupQuery = row.barcode
+        ? supabase.from('products').select('id').eq('barcode', row.barcode).maybeSingle()
+        : supabase.from('products').select('id').eq('name', row.name).maybeSingle()
+
+      const { data: existing } = await lookupQuery
+
+      const productPayload = {
+        name: row.name,
+        category: row.category || 'General',
+        subcategory: row.subcategory || null,
+        barcode: row.barcode || null,
+        cost_price: row.cost_price,
+        sell_price: row.sell_price,
+        pedidos_ya_price: row.pedidos_ya_price,
+        rappi_price: row.rappi_price,
+      }
 
       if (existing?.id) {
         productId = existing.id
-        await supabase.from('products').update({
-          category: row.category || undefined,
-          barcode: row.barcode || undefined,
-          cost_price: row.cost_price || undefined,
-          sell_price: row.sell_price,
-        }).eq('id', productId)
+        await supabase.from('products').update(productPayload).eq('id', productId)
       } else {
         const { data: newProduct } = await supabase
           .from('products')
-          .insert({
-            name: row.name,
-            category: row.category || null,
-            barcode: row.barcode || null,
-            cost_price: row.cost_price || null,
-            sell_price: row.sell_price,
-          })
+          .insert(productPayload)
           .select('id')
           .single()
         productId = newProduct?.id ?? null
@@ -201,6 +226,20 @@ export function BulkImportDialog({ open, onClose, branches, profileBranchId, isD
   const validCount = rows.filter((r) => !r.error).length
   const errorCount = rows.filter((r) => r.error).length
 
+  const COLUMNS = [
+    { label: 'Codigo', required: false },
+    { label: 'Descripcion', required: true },
+    { label: 'categoria', required: false },
+    { label: 'subcategoria', required: false },
+    { label: 'Lista Mostrador', required: true },
+    { label: 'Lista PedidosYa', required: false },
+    { label: 'Lista Rappi', required: false },
+    { label: 'Costo', required: false },
+    { label: 'Rentabilidad', required: false },
+    { label: 'Stock Minimo', required: false },
+    { label: 'Stock', required: false },
+  ]
+
   return (
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col">
@@ -212,7 +251,8 @@ export function BulkImportDialog({ open, onClose, branches, profileBranchId, isD
           <div className="space-y-4 pt-2">
             <p className="text-xs text-muted-foreground">
               Subí un archivo CSV con tus productos. Podés exportarlo desde Excel o Google Sheets.
-              Las columnas requeridas son: <span className="font-medium text-foreground">nombre, precio_venta</span>. El resto es opcional.
+              Las columnas requeridas son:{' '}
+              <span className="font-medium text-foreground">Descripcion, Lista Mostrador</span>. El resto es opcional.
             </p>
 
             {/* Drop zone */}
@@ -238,13 +278,19 @@ export function BulkImportDialog({ open, onClose, branches, profileBranchId, isD
             <div className="rounded-lg border border-border p-4 bg-neutral-50 space-y-2">
               <p className="text-xs font-medium">Columnas esperadas (en este orden):</p>
               <div className="flex flex-wrap gap-1.5">
-                {['nombre *', 'categoria', 'codigo_barras', 'precio_costo', 'precio_venta *', 'stock_actual', 'stock_minimo'].map((col) => (
-                  <Badge key={col} variant="outline" className={cn('text-[10px]', col.includes('*') && 'border-black')}>
-                    {col}
+                {COLUMNS.map((col) => (
+                  <Badge
+                    key={col.label}
+                    variant="outline"
+                    className={cn('text-[10px]', col.required && 'border-black font-semibold')}
+                  >
+                    {col.label}{col.required ? ' *' : ''}
                   </Badge>
                 ))}
               </div>
-              <p className="text-[10px] text-muted-foreground">Separador: coma (,) o punto y coma (;). Primera fila = encabezado.</p>
+              <p className="text-[10px] text-muted-foreground">
+                Separador: coma (,) o punto y coma (;). Primera fila = encabezado.
+              </p>
             </div>
 
             <Button variant="outline" size="sm" onClick={downloadTemplate} className="text-xs gap-1.5">
@@ -256,7 +302,6 @@ export function BulkImportDialog({ open, onClose, branches, profileBranchId, isD
 
         {step === 'preview' && (
           <div className="flex flex-col gap-4 pt-2 min-h-0">
-            {/* Summary */}
             <div className="flex items-center gap-3 flex-wrap">
               <div className="flex items-center gap-1.5 text-xs text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full">
                 <CheckCircle2 className="w-3.5 h-3.5" />
@@ -269,7 +314,6 @@ export function BulkImportDialog({ open, onClose, branches, profileBranchId, isD
                 </div>
               )}
 
-              {/* Branch selector */}
               {(isDirector || branches.length > 1) && (
                 <div className="ml-auto flex items-center gap-2">
                   <span className="text-xs text-muted-foreground">Sucursal destino:</span>
@@ -291,12 +335,13 @@ export function BulkImportDialog({ open, onClose, branches, profileBranchId, isD
               <table className="w-full text-xs">
                 <thead className="sticky top-0 bg-neutral-50 border-b border-border">
                   <tr>
-                    <th className="text-left px-3 py-2 font-medium text-muted-foreground uppercase tracking-wider">Nombre</th>
-                    <th className="text-left px-3 py-2 font-medium text-muted-foreground uppercase tracking-wider hidden sm:table-cell">Categoría</th>
-                    <th className="text-right px-3 py-2 font-medium text-muted-foreground uppercase tracking-wider">P. Costo</th>
-                    <th className="text-right px-3 py-2 font-medium text-muted-foreground uppercase tracking-wider">P. Venta</th>
+                    <th className="text-left px-3 py-2 font-medium text-muted-foreground uppercase tracking-wider">Descripcion</th>
+                    <th className="text-left px-3 py-2 font-medium text-muted-foreground uppercase tracking-wider hidden sm:table-cell">Categoria</th>
+                    <th className="text-right px-3 py-2 font-medium text-muted-foreground uppercase tracking-wider">Mostrador</th>
+                    <th className="text-right px-3 py-2 font-medium text-muted-foreground uppercase tracking-wider">PedidosYa</th>
+                    <th className="text-right px-3 py-2 font-medium text-muted-foreground uppercase tracking-wider hidden md:table-cell">Rappi</th>
+                    <th className="text-right px-3 py-2 font-medium text-muted-foreground uppercase tracking-wider hidden md:table-cell">Costo</th>
                     <th className="text-right px-3 py-2 font-medium text-muted-foreground uppercase tracking-wider">Stock</th>
-                    <th className="text-right px-3 py-2 font-medium text-muted-foreground uppercase tracking-wider">Mín.</th>
                     <th className="px-3 py-2"></th>
                   </tr>
                 </thead>
@@ -305,10 +350,11 @@ export function BulkImportDialog({ open, onClose, branches, profileBranchId, isD
                     <tr key={i} className={cn(row.error && 'bg-red-50/50 opacity-60')}>
                       <td className="px-3 py-2 font-medium">{row.name}</td>
                       <td className="px-3 py-2 text-muted-foreground hidden sm:table-cell">{row.category || '—'}</td>
-                      <td className="px-3 py-2 text-right tabular-nums">{row.cost_price > 0 ? `$${row.cost_price}` : '—'}</td>
-                      <td className="px-3 py-2 text-right tabular-nums font-medium">${row.sell_price}</td>
+                      <td className="px-3 py-2 text-right tabular-nums font-medium">${row.sell_price.toLocaleString()}</td>
+                      <td className="px-3 py-2 text-right tabular-nums">{row.pedidos_ya_price > 0 ? `$${row.pedidos_ya_price.toLocaleString()}` : '—'}</td>
+                      <td className="px-3 py-2 text-right tabular-nums hidden md:table-cell">{row.rappi_price > 0 ? `$${row.rappi_price.toLocaleString()}` : '—'}</td>
+                      <td className="px-3 py-2 text-right tabular-nums hidden md:table-cell">{row.cost_price > 0 ? `$${row.cost_price.toLocaleString()}` : '—'}</td>
                       <td className="px-3 py-2 text-right tabular-nums">{row.quantity}</td>
-                      <td className="px-3 py-2 text-right tabular-nums">{row.min_quantity}</td>
                       <td className="px-3 py-2 text-right">
                         {row.error ? (
                           <span className="text-red-500 text-[10px]" title={row.error}>
@@ -352,7 +398,7 @@ export function BulkImportDialog({ open, onClose, branches, profileBranchId, isD
                 Se importaron <span className="font-medium text-foreground">{importedCount} productos</span> correctamente.
               </p>
               <p className="text-xs text-muted-foreground mt-1">
-                Si el producto ya existía, se actualizó el precio y stock.
+                Si el producto ya existía, se actualizó precio y stock.
               </p>
             </div>
             <Button size="sm" className="bg-black text-white hover:bg-neutral-800 text-xs" onClick={handleClose}>

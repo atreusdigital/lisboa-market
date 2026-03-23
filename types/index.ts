@@ -28,9 +28,12 @@ export type Product = {
   id: string
   name: string
   category: string
+  subcategory: string | null
   barcode: string | null
   cost_price: number
   sell_price: number
+  pedidos_ya_price: number
+  rappi_price: number
   image_url: string | null
   is_star: boolean
   created_at: string
