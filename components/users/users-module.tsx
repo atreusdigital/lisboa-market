@@ -44,7 +44,7 @@ interface NewUserForm {
   username: string
   password: string
   role: UserRole
-  branch_id: string
+  branch_id: string | null
 }
 
 export function UsersModule({ users: initial, branches, activityLog, currentProfile }: Props) {
@@ -54,7 +54,7 @@ export function UsersModule({ users: initial, branches, activityLog, currentProf
   const [editingUser, setEditingUser] = useState<Profile | null>(null)
   const [showPassword, setShowPassword] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [form, setForm] = useState<NewUserForm>({ full_name: '', username: '', password: '', role: 'empleado', branch_id: '' })
+  const [form, setForm] = useState<NewUserForm>({ full_name: '', username: '', password: '', role: 'empleado', branch_id: null })
   const [editRole, setEditRole] = useState<UserRole>('empleado')
   const [editBranch, setEditBranch] = useState('')
   const supabase = createClient()
@@ -292,7 +292,7 @@ export function UsersModule({ users: initial, branches, activityLog, currentProf
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs font-medium">Sucursal</Label>
-              <Select value={form.branch_id} onValueChange={v => setForm(f => ({ ...f, branch_id: v }))}>
+              <Select value={form.branch_id ?? ''} onValueChange={v => setForm(f => ({ ...f, branch_id: v || null }))}>
                 <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Sin sucursal asignada" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="">Sin sucursal</SelectItem>
