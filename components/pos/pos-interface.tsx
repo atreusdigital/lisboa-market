@@ -257,17 +257,19 @@ export function POSInterface({ stockItems, branches, profile }: Props) {
         <div className="grid grid-cols-2 gap-2">
           <button
             onClick={() => setPaymentMethod('efectivo')}
-            className={cn('flex flex-col items-center gap-1 py-2.5 rounded-lg border text-xs font-medium transition-all', paymentMethod === 'efectivo' ? 'text-white border-0' : 'border-border bg-white text-muted-foreground hover:border-neutral-300')}
+            className={cn('flex flex-col items-center justify-center gap-1.5 py-3 rounded-lg border text-xs font-medium transition-all h-20', paymentMethod === 'efectivo' ? 'text-white border-transparent' : 'border-border bg-white text-muted-foreground hover:border-neutral-300')}
             style={paymentMethod === 'efectivo' ? { backgroundColor: LISBOA_GREEN } : {}}
           >
-            <Banknote className="w-4 h-4" />
+            <Banknote className="w-5 h-5" />
             Efectivo
           </button>
           <button
             onClick={() => setPaymentMethod('mercadopago')}
-            className={cn('flex items-center justify-center py-2.5 rounded-lg border transition-all overflow-hidden', paymentMethod === 'mercadopago' ? 'border-yellow-400 ring-2 ring-yellow-400' : 'border-border bg-white hover:border-yellow-300')}
+            className={cn('flex flex-col items-center justify-center gap-1.5 py-3 rounded-lg border transition-all h-20', paymentMethod === 'mercadopago' ? 'border-transparent' : 'border-border bg-white hover:border-yellow-300')}
+            style={paymentMethod === 'mercadopago' ? { backgroundColor: '#FFE600' } : {}}
           >
-            <MPLogo size="md" />
+            <MPLogo size="sm" />
+            <span className="text-xs font-medium" style={{ color: '#2D3277' }}>MercadoPago</span>
           </button>
         </div>
 
