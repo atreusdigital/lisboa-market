@@ -56,11 +56,11 @@ export function UsersModule({ users: initial, branches, activityLog, currentProf
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState<NewUserForm>({ full_name: '', username: '', password: '', role: 'empleado', branch_id: null })
   const [editRole, setEditRole] = useState<UserRole>('empleado')
-  const [editBranch, setEditBranch] = useState('')
+  const [editBranch, setEditBranch] = useState<string | null>(null)
   const supabase = createClient()
 
   function openNew() {
-    setForm({ full_name: '', username: '', password: '', role: 'empleado', branch_id: '' })
+    setForm({ full_name: '', username: '', password: '', role: 'empleado', branch_id: null })
     setShowPassword(false)
     setShowNewDialog(true)
   }
@@ -68,7 +68,7 @@ export function UsersModule({ users: initial, branches, activityLog, currentProf
   function openEdit(u: Profile) {
     setEditingUser(u)
     setEditRole(u.role as UserRole)
-    setEditBranch(u.branch_id ?? '')
+    setEditBranch(u.branch_id)
     setShowEditDialog(true)
   }
 
@@ -330,7 +330,7 @@ export function UsersModule({ users: initial, branches, activityLog, currentProf
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs font-medium">Sucursal</Label>
-              <Select value={editBranch} onValueChange={v => setEditBranch(v)}>
+              <Select value={editBranch ?? ''} onValueChange={v => setEditBranch(v || null)}>
                 <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Sin sucursal" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="">Sin sucursal</SelectItem>
