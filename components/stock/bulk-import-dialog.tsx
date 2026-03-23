@@ -165,17 +165,20 @@ export function BulkImportDialog({ open, onClose, branches, profileBranchId, isD
         .upsert(withoutBarcode.slice(i, i + CHUNK).map(toPayload), { onConflict: 'name' })
     }
 
-    // 2. Fetch all product IDs by barcode or name
-    const barcodes = withBarcode.map((r) => r.barcode)
-    const names = withoutBarcode.map((r) => r.name)
+    // 2. Fetch ALL products to build barcode/name → id maps (avoids URL limit with .in())
+    const allProducts: { id: string; barcode: string | null; name: string }[] = []
+    let from = 0
+    const PAGE = 1000
+    while (true) {
+      const { data } = await supabase.from('products').select('id, barcode, name').range(from, from + PAGE - 1)
+      if (!data || data.length === 0) break
+      allProducts.push(...data)
+      if (data.length < PAGE) break
+      from += PAGE
+    }
 
-    const { data: productsByBarcode } = await supabase
-      .from('products').select('id, barcode').in('barcode', barcodes)
-    const { data: productsByName } = await supabase
-      .from('products').select('id, name').in('name', names)
-
-    const barcodeMap = Object.fromEntries((productsByBarcode ?? []).map((p) => [p.barcode, p.id]))
-    const nameMap = Object.fromEntries((productsByName ?? []).map((p) => [p.name, p.id]))
+    const barcodeMap = Object.fromEntries(allProducts.filter((p) => p.barcode).map((p) => [p.barcode!, p.id]))
+    const nameMap = Object.fromEntries(allProducts.map((p) => [p.name, p.id]))
 
     // 3. Build stock upsert payload
     const stockRows = validRows.flatMap((r) => {
