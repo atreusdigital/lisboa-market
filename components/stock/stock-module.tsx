@@ -48,6 +48,11 @@ export function StockModule({ stockItems, branches, products, profile }: Props) 
   async function handleClearCatalog() {
     setClearing(true)
     try {
+      // Must delete in dependency order due to foreign keys
+      await supabase.from('sale_items').delete().neq('id', '00000000-0000-0000-0000-000000000000')
+      await supabase.from('supplier_order_items').delete().neq('id', '00000000-0000-0000-0000-000000000000')
+      await supabase.from('promotion_products').delete().neq('id', '00000000-0000-0000-0000-000000000000')
+      await supabase.from('stock').delete().neq('id', '00000000-0000-0000-0000-000000000000')
       const { error } = await supabase.from('products').delete().neq('id', '00000000-0000-0000-0000-000000000000')
       if (error) throw error
       toast.success('Catálogo eliminado. Podés importar el nuevo CSV.')
