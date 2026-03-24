@@ -45,6 +45,25 @@ export function StockModule({ stockItems, branches, products, profile }: Props) 
 
   const isAdmin = profile.role !== 'empleado'
 
+  // Combine stockItems with virtual entries for products that have no stock entry
+  const allItems = useMemo(() => {
+    const stockedProductIds = new Set(stockItems.map(s => s.product_id))
+    const fallbackBranch = branches[0]?.id ?? ''
+    const virtual = products
+      .filter(p => !stockedProductIds.has(p.id))
+      .map(p => ({
+        id: `virtual-${p.id}`,
+        product_id: p.id,
+        product: p,
+        branch_id: fallbackBranch,
+        quantity: 0,
+        min_quantity: 0,
+        created_at: '',
+        updated_at: '',
+      } as unknown as Stock))
+    return [...stockItems, ...virtual]
+  }, [stockItems, products, branches])
+
   async function toggleStar(productId: string, current: boolean) {
     await supabase.from('products').update({ is_star: !current }).eq('id', productId)
     window.location.reload()
@@ -52,14 +71,16 @@ export function StockModule({ stockItems, branches, products, profile }: Props) 
 
   async function handleDelete(item: Stock) {
     if (!confirm(`¿Borrar "${item.product?.name}"? Esta acción no se puede deshacer.`)) return
-    await supabase.from('stock').delete().eq('id', item.id)
+    if (!String(item.id).startsWith('virtual-')) {
+      await supabase.from('stock').delete().eq('id', item.id)
+    }
     await supabase.from('products').delete().eq('id', item.product_id)
     toast.success('Producto eliminado')
     window.location.reload()
   }
 
   const filtered = useMemo(() => {
-    return stockItems.filter((item) => {
+    return allItems.filter((item) => {
       const name = item.product?.name?.toLowerCase() ?? ''
       const category = item.product?.category?.toLowerCase() ?? ''
       const barcode = item.product?.barcode ?? ''
@@ -71,9 +92,9 @@ export function StockModule({ stockItems, branches, products, profile }: Props) 
       if (starFilter && !item.product?.is_star) return false
       return true
     })
-  }, [stockItems, search, branchFilter, statusFilter, starFilter])
+  }, [allItems, search, branchFilter, statusFilter, starFilter])
 
-  const lowStockCount = stockItems.filter((i) => i.quantity <= i.min_quantity).length
+  const lowStockCount = allItems.filter((i) => i.quantity <= i.min_quantity).length
 
   return (
     <div className="space-y-4">
