@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
 
     const response = await anthropic.messages.create({
       model: 'claude-opus-4-6',
-      max_tokens: 1024,
+      max_tokens: 2048,
       messages: [
         {
           role: 'user',
@@ -35,22 +35,38 @@ export async function POST(request: NextRequest) {
             },
             {
               type: 'text',
-              text: `Analizá esta imagen de un pedido/remito de proveedor para un kiosco/mini supermercado argentino.
+              text: `Analizá esta imagen de una factura/remito de proveedor para un kiosco argentino.
 
-Identificá todos los productos visibles y sus cantidades.
+Extraé TODA la información disponible y respondé ÚNICAMENTE con este JSON exacto, sin texto adicional:
 
-Respondé ÚNICAMENTE con un JSON en este formato exacto, sin texto adicional:
 {
+  "proveedor": "nombre del proveedor o distribuidora",
+  "fecha": "fecha en formato YYYY-MM-DD si está visible",
+  "numero_factura": "número de factura si está visible",
   "items": [
-    { "name": "nombre del producto", "quantity": número }
-  ]
+    {
+      "descripcion_factura": "descripción exacta tal como aparece en la factura",
+      "codigo_factura": "código de barras o código interno si está visible, sino null",
+      "cantidad": número de unidades,
+      "precio_unit": precio unitario sin IVA como número (si está visible),
+      "importe": importe total del ítem como número (si está visible)
+    }
+  ],
+  "subtotal": subtotal sin impuestos como número,
+  "iva_pct": porcentaje de IVA como número (ej: 21 para 21%), null si no se ve,
+  "iva_monto": monto de IVA como número,
+  "iibb_pct": porcentaje de IIBB como número, null si no se ve,
+  "iibb_monto": monto de IIBB como número, null si no se ve,
+  "otros_impuestos": monto de otros impuestos como número, null si no se ve,
+  "total": total final como número
 }
 
-Reglas:
-- Usá nombres de productos claros y comunes en Argentina (ej: "Coca Cola 1.5L", "Fernet Branca 750ml", "Galletitas Oreo")
-- Si no podés leer bien una cantidad, usá 1 como valor por defecto
-- Incluí todos los productos visibles aunque no estés 100% seguro del nombre
-- Si no es una imagen de productos/pedido, devolvé: {"items": []}`,
+Reglas importantes:
+- La cantidad puede venir en cajas (DI, UN, etc.) - extraé la cantidad numérica
+- Si hay columna PRECIO UNIT usá ese valor (NO el IMPORTE que es precio × cantidad)
+- Si ves "B.O." o "BONIFICACIÓN" ignorala para el precio
+- Extraé IVA, IIBB y cualquier percepción que aparezca en el pie de la factura
+- Si un campo no está visible, usá null`,
             },
           ],
         },
@@ -59,7 +75,6 @@ Reglas:
 
     const text = response.content[0].type === 'text' ? response.content[0].text : ''
 
-    // Parsear JSON de la respuesta
     const jsonMatch = text.match(/\{[\s\S]*\}/)
     if (!jsonMatch) {
       return NextResponse.json({ items: [] })
