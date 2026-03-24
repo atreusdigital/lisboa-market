@@ -25,11 +25,9 @@ export default async function CajaPage() {
     { count: alertCount },
   ] = await Promise.all([
     supabase.from('branches').select('id, name, address, created_at'),
-    supabase.from('shifts')
-      .select('*, user:profiles(full_name)')
-      .eq('status', 'open')
-      .eq('branch_id', profile.branch_id ?? '')
-      .maybeSingle(),
+    profile.branch_id
+      ? supabase.from('shifts').select('*, user:profiles(full_name)').eq('status', 'open').eq('branch_id', profile.branch_id).maybeSingle()
+      : supabase.from('shifts').select('*, user:profiles(full_name)').eq('status', 'open').maybeSingle(),
     supabase.from('sales')
       .select('total, payment_method, created_at, branch_id')
       .gte('created_at', today.toISOString()),

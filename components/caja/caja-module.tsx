@@ -53,7 +53,12 @@ export function CajaModule({
 }: Props) {
   const supabase = createClient()
   const isDirector = profile.role === 'director'
-  const branchId = profile.branch_id ?? branches[0]?.id ?? ''
+
+  // Para directores: selector de sucursal activa
+  const [selectedBranchId, setSelectedBranchId] = useState(
+    profile.branch_id ?? branches[0]?.id ?? ''
+  )
+  const branchId = selectedBranchId
 
   // Turno state
   const [shift, setShift] = useState<(Shift & { user?: { full_name: string } }) | null>(openShift)
@@ -85,7 +90,7 @@ export function CajaModule({
   // ─── TURNO ───────────────────────────────────────────────
   async function openShiftFn() {
     if (!openingCash) { toast.error('Ingresá el efectivo inicial'); return }
-    if (!branchId) { toast.error('No hay sucursal asignada a tu usuario'); return }
+    if (!branchId) { toast.error('Seleccioná una sucursal'); return }
     setShiftLoading(true)
     const { data, error } = await supabase.from('shifts').insert({
       branch_id: branchId,
@@ -93,7 +98,7 @@ export function CajaModule({
       opening_cash: parseFloat(openingCash),
       status: 'open',
     }).select('*, user:profiles(full_name)').single()
-    if (error) { toast.error('Error al abrir turno'); setShiftLoading(false); return }
+    if (error) { toast.error(`Error al abrir turno: ${error.message}`); setShiftLoading(false); return }
     setShift(data)
     setOpeningCash('')
     toast.success('Turno abierto')
@@ -111,7 +116,7 @@ export function CajaModule({
       notes: shiftNotes || null,
       status: 'closed',
     }).eq('id', shift.id)
-    if (error) { toast.error('Error al cerrar turno'); setShiftLoading(false); return }
+    if (error) { toast.error(`Error al cerrar turno: ${error.message}`); setShiftLoading(false); return }
     setShift(null)
     setClosingCash('')
     setShiftNotes('')
@@ -122,6 +127,7 @@ export function CajaModule({
   // ─── CIERRE DE CAJA ──────────────────────────────────────
   async function saveCashClosing() {
     if (billTotal === 0) { toast.error('Ingresá al menos un billete'); return }
+    if (!branchId) { toast.error('Seleccioná una sucursal'); return }
     setClosingLoading(true)
     const { error } = await supabase.from('cash_closings').insert({
       branch_id: branchId,
@@ -133,7 +139,7 @@ export function CajaModule({
       difference: diff,
       notes: closingNotes || null,
     })
-    if (error) { toast.error('Error al guardar cierre'); setClosingLoading(false); return }
+    if (error) { toast.error(`Error al guardar cierre: ${error.message}`); setClosingLoading(false); return }
     toast.success('Cierre de caja guardado')
     setBills({})
     setClosingNotes('')
@@ -147,6 +153,7 @@ export function CajaModule({
       return
     }
     setExpenseLoading(true)
+    if (!branchId) { toast.error('Seleccioná una sucursal'); setExpenseLoading(false); return }
     const { data, error } = await supabase.from('expenses').insert({
       branch_id: branchId,
       user_id: profile.id,
@@ -155,7 +162,7 @@ export function CajaModule({
       amount: parseFloat(expenseForm.amount),
       date: new Date().toISOString().split('T')[0],
     }).select('*').single()
-    if (error) { toast.error('Error al registrar gasto'); setExpenseLoading(false); return }
+    if (error) { toast.error(`Error al registrar gasto: ${error.message}`); setExpenseLoading(false); return }
     setExpenses(prev => [{ ...data, user: { full_name: profile.full_name } }, ...prev])
     setExpenseForm({ category: 'otros', description: '', amount: '' })
     toast.success('Gasto registrado')
@@ -179,6 +186,23 @@ export function CajaModule({
 
   return (
     <div className="max-w-3xl space-y-5">
+      {/* Selector de sucursal para director/admin */}
+      {(isDirector || profile.role === 'admin') && branches.length > 1 && (
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-muted-foreground font-medium">Operando en:</span>
+          <Select value={selectedBranchId} onValueChange={v => setSelectedBranchId(v || branches[0]?.id || '')}>
+            <SelectTrigger className="h-8 text-xs w-52">
+              <SelectValue placeholder="Seleccioná sucursal" />
+            </SelectTrigger>
+            <SelectContent>
+              {branches.map(b => (
+                <SelectItem key={b.id} value={b.id} className="text-xs">{b.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
       {/* Resumen del día */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <Card className="p-3 border-border">
