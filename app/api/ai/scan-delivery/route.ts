@@ -18,10 +18,11 @@ export async function POST(request: NextRequest) {
 
     const arrayBuffer = await imageFile.arrayBuffer()
     const base64 = Buffer.from(arrayBuffer).toString('base64')
-    const mediaType = imageFile.type as 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif'
+    // Default to jpeg if type is missing (can happen with canvas.toBlob blobs)
+    const mediaType = (imageFile.type || 'image/jpeg') as 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif'
 
     const response = await anthropic.messages.create({
-      model: 'claude-haiku-4-5-20251001',
+      model: 'claude-sonnet-4-6',
       max_tokens: 1024,
       messages: [
         {
@@ -85,7 +86,8 @@ Reglas importantes:
     const parsed = JSON.parse(jsonMatch[0])
     return NextResponse.json(parsed)
   } catch (error) {
-    console.error('Error scanning delivery:', error)
-    return NextResponse.json({ error: 'Error processing image' }, { status: 500 })
+    const msg = error instanceof Error ? error.message : String(error)
+    console.error('Error scanning delivery:', msg)
+    return NextResponse.json({ error: msg }, { status: 500 })
   }
 }
