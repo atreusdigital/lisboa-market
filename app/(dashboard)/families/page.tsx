@@ -25,6 +25,7 @@ export default async function FamiliesPage() {
     .from('products')
     .select('id, name, category, family_id')
     .order('name')
+    .range(0, 4999)
 
   const { count: alertCount } = await supabase
     .from('alerts').select('id', { count: 'exact', head: true }).eq('status', 'active')

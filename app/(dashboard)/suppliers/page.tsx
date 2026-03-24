@@ -41,7 +41,7 @@ export default async function SuppliersPage() {
 
   const { data: accounts } = await accountsQuery
   const { data: branches } = await supabase.from('branches').select('*')
-  const { data: products } = await supabase.from('products').select('*').order('name')
+  const { data: products } = await supabase.from('products').select('*').order('name').range(0, 4999)
 
   const { count: alertCount } = await supabase
     .from('alerts').select('id', { count: 'exact', head: true }).eq('status', 'active')
