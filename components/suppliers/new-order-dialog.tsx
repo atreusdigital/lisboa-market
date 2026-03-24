@@ -118,8 +118,8 @@ export function NewOrderDialog({ open, onClose, suppliers, branches, products, p
         body: formData,
       })
 
-      if (!res.ok) throw new Error('Error al procesar la imagen')
       const data = await res.json()
+      if (!res.ok) throw new Error(data?.error ?? `Error ${res.status}`)
 
       // Normalizar: minúsculas, sin guiones ni puntuación, espacios simples
       function normalize(s: string) {
@@ -176,7 +176,8 @@ export function NewOrderDialog({ open, onClose, suppliers, branches, products, p
       setScannedItems(matched)
       setStep('review')
     } catch (err) {
-      toast.error('Error al escanear. Intentá de nuevo.')
+      const msg = err instanceof Error ? err.message : 'Error desconocido'
+      toast.error(`Error al escanear: ${msg}`)
       setStep('setup')
       console.error(err)
     } finally {
