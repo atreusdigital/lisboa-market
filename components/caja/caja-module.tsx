@@ -20,6 +20,8 @@ import type { Profile, Branch, Expense, Shift, CashClosing } from '@/types'
 
 const LISBOA_GREEN = '#1C2B23'
 
+const DENOMINATIONS = [20000, 10000, 5000, 2000, 1000, 500, 200, 100, 50]
+
 const EXPENSE_CATEGORIES = [
   { value: 'electricidad', label: '⚡ Electricidad' },
   { value: 'limpieza', label: '🧹 Limpieza' },
@@ -61,10 +63,13 @@ export function CajaModule({
   const [shiftLoading, setShiftLoading] = useState(false)
 
   // Cierre de caja state
-  const [actualCash, setActualCash] = useState('')
+  const [bills, setBills] = useState<Record<number, string>>({})
   const [closingNotes, setClosingNotes] = useState('')
   const [closingLoading, setClosingLoading] = useState(false)
   const [showRecentClosings, setShowRecentClosings] = useState(false)
+
+  const billTotal = DENOMINATIONS.reduce((sum, d) => sum + d * (parseInt(bills[d] || '0') || 0), 0)
+  const diff = billTotal - efectivoHoy
 
   // Gastos state
   const [expenses, setExpenses] = useState(todayExpenses)
@@ -76,12 +81,11 @@ export function CajaModule({
   const [expenseLoading, setExpenseLoading] = useState(false)
 
   const totalExpensesHoy = expenses.reduce((s, e) => s + e.amount, 0)
-  const actualCashNum = parseFloat(actualCash) || 0
-  const diff = actualCashNum - efectivoHoy
 
   // ─── TURNO ───────────────────────────────────────────────
   async function openShiftFn() {
     if (!openingCash) { toast.error('Ingresá el efectivo inicial'); return }
+    if (!branchId) { toast.error('No hay sucursal asignada a tu usuario'); return }
     setShiftLoading(true)
     const { data, error } = await supabase.from('shifts').insert({
       branch_id: branchId,
@@ -117,7 +121,7 @@ export function CajaModule({
 
   // ─── CIERRE DE CAJA ──────────────────────────────────────
   async function saveCashClosing() {
-    if (!actualCash) { toast.error('Ingresá el efectivo contado'); return }
+    if (billTotal === 0) { toast.error('Ingresá al menos un billete'); return }
     setClosingLoading(true)
     const { error } = await supabase.from('cash_closings').insert({
       branch_id: branchId,
@@ -125,13 +129,13 @@ export function CajaModule({
       shift_id: shift?.id ?? null,
       date: new Date().toISOString().split('T')[0],
       expected_cash: efectivoHoy,
-      actual_cash: actualCashNum,
+      actual_cash: billTotal,
       difference: diff,
       notes: closingNotes || null,
     })
     if (error) { toast.error('Error al guardar cierre'); setClosingLoading(false); return }
     toast.success('Cierre de caja guardado')
-    setActualCash('')
+    setBills({})
     setClosingNotes('')
     setClosingLoading(false)
   }
@@ -325,75 +329,117 @@ export function CajaModule({
 
         {/* ── CIERRE DE CAJA ── */}
         <TabsContent value="cierre" className="mt-4 space-y-4">
-          <Card className="border-border p-4 space-y-4">
-            <div>
-              <h3 className="text-sm font-semibold">Cierre de caja</h3>
-              <p className="text-xs text-muted-foreground mt-0.5">Contá el efectivo en la caja y compará con lo que debería haber</p>
-            </div>
+          <div className="grid md:grid-cols-2 gap-4">
 
-            <div className="grid grid-cols-2 gap-3 p-3 rounded-lg bg-neutral-50 border border-border">
-              <div>
-                <p className="text-[11px] text-muted-foreground">Efectivo esperado</p>
-                <p className="text-lg font-bold">{fmt(efectivoHoy)}</p>
-                <p className="text-[11px] text-muted-foreground">según ventas en efectivo</p>
+            {/* Conteo de billetes */}
+            <Card className="border-border overflow-hidden">
+              <div className="px-4 py-3 border-b border-border bg-neutral-50">
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Conteo de billetes</p>
               </div>
-              <div>
-                <p className="text-[11px] text-muted-foreground">Diferencia</p>
-                <p className={cn('text-lg font-bold', diff === 0 ? 'text-neutral-900' : diff > 0 ? 'text-green-600' : 'text-red-600')}>
-                  {diff >= 0 ? '+' : ''}{fmt(diff)}
-                </p>
-                <p className="text-[11px] text-muted-foreground">
-                  {diff === 0 ? 'Cuadra exacto ✓' : diff > 0 ? 'Sobra plata' : 'Falta plata ⚠️'}
-                </p>
+              <div className="p-4 space-y-2">
+                {DENOMINATIONS.map(d => {
+                  const qty = parseInt(bills[d] || '0') || 0
+                  const subtotal = d * qty
+                  return (
+                    <div key={d} className="flex items-center gap-2">
+                      <span className="text-xs font-medium w-20 shrink-0 text-muted-foreground">{fmt(d)}</span>
+                      <Input
+                        type="number"
+                        min="0"
+                        value={bills[d] ?? ''}
+                        onChange={e => setBills(prev => ({ ...prev, [d]: e.target.value }))}
+                        placeholder="0"
+                        className="h-8 text-sm text-center w-20"
+                      />
+                      <span className="text-xs text-muted-foreground">×</span>
+                      <span className={cn('text-sm font-medium ml-auto tabular-nums', subtotal > 0 ? 'text-foreground' : 'text-muted-foreground')}>
+                        {subtotal > 0 ? fmt(subtotal) : '—'}
+                      </span>
+                    </div>
+                  )
+                })}
+                <div className="border-t border-border pt-3 mt-3 flex justify-between items-center">
+                  <span className="text-sm font-semibold">RECUENTO</span>
+                  <span className="text-base font-bold tabular-nums">{fmt(billTotal)}</span>
+                </div>
               </div>
-            </div>
+            </Card>
 
-            <div className="space-y-2">
-              <Label className="text-xs">Efectivo contado en caja</Label>
-              <Input
-                type="number"
-                value={actualCash}
-                onChange={e => setActualCash(e.target.value)}
-                placeholder="Ingresá el total contado..."
-                className="h-9 text-lg font-semibold"
+            {/* Desglose del sistema */}
+            <div className="space-y-4">
+              <Card className="border-border overflow-hidden">
+                <div className="px-4 py-3 border-b border-border bg-neutral-50">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Desglose del sistema</p>
+                </div>
+                <div className="p-4 space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Efectivo</span>
+                    <span className="font-medium tabular-nums">{fmt(efectivoHoy)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">MercadoPago</span>
+                    <span className="font-medium tabular-nums">{fmt(mpHoy)}</span>
+                  </div>
+                  <div className="flex justify-between border-t border-border pt-2 mt-1">
+                    <span className="font-semibold">TOTAL</span>
+                    <span className="font-bold tabular-nums">{fmt(efectivoHoy + mpHoy)}</span>
+                  </div>
+                </div>
+              </Card>
+
+              <Card className="border-border overflow-hidden">
+                <div className="p-4 space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Efectivo esperado</span>
+                    <span className="tabular-nums">{fmt(efectivoHoy)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Gastos</span>
+                    <span className="text-red-600 tabular-nums">-{fmt(totalExpensesHoy)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Recuento efectivo</span>
+                    <span className="tabular-nums">{fmt(billTotal)}</span>
+                  </div>
+                  <div className={cn(
+                    'flex justify-between border-t border-border pt-2 mt-1 font-bold',
+                    diff === 0 ? 'text-green-600' : diff > 0 ? 'text-blue-600' : 'text-red-600'
+                  )}>
+                    <span>DIFERENCIA</span>
+                    <span className="tabular-nums">{diff >= 0 ? '+' : ''}{fmt(diff)}</span>
+                  </div>
+                </div>
+              </Card>
+
+              {billTotal > 0 && (
+                <div className={cn('flex items-center gap-2 p-3 rounded-lg text-xs border', diff === 0 ? 'bg-green-50 text-green-700 border-green-100' : diff < 0 ? 'bg-red-50 text-red-700 border-red-100' : 'bg-blue-50 text-blue-700 border-blue-100')}>
+                  {diff === 0 ? <CheckCircle2 className="w-3.5 h-3.5 shrink-0" /> : <AlertTriangle className="w-3.5 h-3.5 shrink-0" />}
+                  <span>
+                    {diff === 0 ? 'La caja cuadra perfectamente ✓'
+                      : diff < 0 ? `Faltan ${fmt(Math.abs(diff))} en caja`
+                      : `Sobran ${fmt(diff)} en caja`}
+                  </span>
+                </div>
+              )}
+
+              <Textarea
+                value={closingNotes}
+                onChange={e => setClosingNotes(e.target.value)}
+                placeholder="Comentarios del cierre (opcional)..."
+                className="text-sm resize-none h-16"
               />
+
+              <Button
+                onClick={saveCashClosing}
+                disabled={closingLoading || billTotal === 0}
+                className="w-full text-white h-10"
+                style={{ backgroundColor: LISBOA_GREEN }}
+              >
+                <DollarSign className="w-4 h-4 mr-2" />
+                Guardar cierre de caja
+              </Button>
             </div>
-
-            {actualCash && diff !== 0 && (
-              <div className={cn('flex items-center gap-2 p-3 rounded-lg text-sm', diff < 0 ? 'bg-red-50 text-red-700 border border-red-100' : 'bg-green-50 text-green-700 border border-green-100')}>
-                <AlertTriangle className="w-4 h-4 shrink-0" />
-                <span>
-                  {diff < 0
-                    ? `Faltan ${fmt(Math.abs(diff))} en caja. Revisá si hubo algún error o gasto no registrado.`
-                    : `Sobran ${fmt(diff)} en caja. Puede ser cambio sin registrar.`}
-                </span>
-              </div>
-            )}
-
-            {actualCash && diff === 0 && (
-              <div className="flex items-center gap-2 p-3 rounded-lg text-sm bg-green-50 text-green-700 border border-green-100">
-                <CheckCircle2 className="w-4 h-4" />
-                <span>La caja cuadra perfectamente.</span>
-              </div>
-            )}
-
-            <Textarea
-              value={closingNotes}
-              onChange={e => setClosingNotes(e.target.value)}
-              placeholder="Notas del cierre (opcional)..."
-              className="text-sm resize-none h-20"
-            />
-
-            <Button
-              onClick={saveCashClosing}
-              disabled={closingLoading || !actualCash}
-              className="w-full text-white h-10"
-              style={{ backgroundColor: LISBOA_GREEN }}
-            >
-              <DollarSign className="w-4 h-4 mr-2" />
-              Guardar cierre de caja
-            </Button>
-          </Card>
+          </div>
 
           {/* Historial de cierres */}
           {recentClosings.length > 0 && (
