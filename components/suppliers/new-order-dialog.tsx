@@ -77,6 +77,24 @@ export function NewOrderDialog({ open, onClose, suppliers, branches, products, p
     setScannedItems((prev) => prev.filter((_, i) => i !== index))
   }
 
+  async function compressImage(file: File): Promise<Blob> {
+    return new Promise((resolve) => {
+      const img = new Image()
+      const url = URL.createObjectURL(file)
+      img.onload = () => {
+        const MAX = 1200
+        const scale = Math.min(1, MAX / Math.max(img.width, img.height))
+        const canvas = document.createElement('canvas')
+        canvas.width = Math.round(img.width * scale)
+        canvas.height = Math.round(img.height * scale)
+        canvas.getContext('2d')!.drawImage(img, 0, 0, canvas.width, canvas.height)
+        URL.revokeObjectURL(url)
+        canvas.toBlob(blob => resolve(blob ?? file), 'image/jpeg', 0.85)
+      }
+      img.src = url
+    })
+  }
+
   async function handleScan() {
     if (!supplierId || !branchId) {
       toast.error('Seleccioná proveedor y sucursal primero')
@@ -91,8 +109,9 @@ export function NewOrderDialog({ open, onClose, suppliers, branches, products, p
     setLoading(true)
 
     try {
+      const compressed = await compressImage(imageFile)
       const formData = new FormData()
-      formData.append('image', imageFile)
+      formData.append('image', compressed, 'invoice.jpg')
 
       const res = await fetch('/api/ai/scan-delivery', {
         method: 'POST',
