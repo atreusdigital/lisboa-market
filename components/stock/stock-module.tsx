@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Search, Plus, AlertTriangle, Camera, History, Pencil, Upload, Trash2 } from 'lucide-react'
+import { Search, Plus, AlertTriangle, Camera, History, Pencil, Upload, Trash2, AlertOctagon } from 'lucide-react'
 import { ProductDialog } from './product-dialog'
 import { ScanDeliveryDialog } from './scan-delivery-dialog'
 import { StockMovementsDialog } from './stock-movements-dialog'
@@ -41,7 +41,25 @@ export function StockModule({ stockItems, branches, products, profile }: Props) 
   const [movementsItem, setMovementsItem] = useState<Stock | null>(null)
   const [editItem, setEditItem] = useState<Stock | null>(null)
   const [starFilter, setStarFilter] = useState(false)
+  const [showClearConfirm, setShowClearConfirm] = useState(false)
+  const [clearing, setClearing] = useState(false)
   const supabase = createClient()
+
+  async function handleClearCatalog() {
+    setClearing(true)
+    try {
+      const { error } = await supabase.from('products').delete().neq('id', '00000000-0000-0000-0000-000000000000')
+      if (error) throw error
+      toast.success('Catálogo eliminado. Podés importar el nuevo CSV.')
+      setShowClearConfirm(false)
+      window.location.reload()
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Error desconocido'
+      toast.error(`Error al limpiar: ${msg}`)
+    } finally {
+      setClearing(false)
+    }
+  }
 
   const isAdmin = profile.role !== 'empleado'
 
@@ -111,6 +129,9 @@ export function StockModule({ stockItems, branches, products, profile }: Props) 
         </div>
         {isAdmin && (
           <div className="flex items-center gap-2 flex-wrap">
+            <Button variant="outline" size="sm" onClick={() => setShowClearConfirm(true)} className="h-8 text-xs gap-1.5 border-red-200 text-red-600 hover:bg-red-50 hover:border-red-400">
+              <Trash2 className="w-3.5 h-3.5" /> Limpiar catálogo
+            </Button>
             <Button variant="outline" size="sm" onClick={() => setShowBulkImport(true)} className="h-8 text-xs gap-1.5">
               <Upload className="w-3.5 h-3.5" /> Importar CSV
             </Button>
@@ -313,6 +334,31 @@ export function StockModule({ stockItems, branches, products, profile }: Props) 
       )}
       {showBulkImport && (
         <BulkImportDialog open={showBulkImport} onClose={() => setShowBulkImport(false)} branches={branches} profileBranchId={profile.branch_id} isDirector={profile.role === 'director'} />
+      )}
+
+      {/* Confirm clear catalog */}
+      {showClearConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white rounded-xl p-6 max-w-sm w-full mx-4 shadow-xl space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+                <AlertOctagon className="w-5 h-5 text-red-600" />
+              </div>
+              <div>
+                <p className="font-semibold text-sm">¿Eliminar todo el catálogo?</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Esta acción borra todos los productos y su stock. No se puede deshacer.</p>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" className="flex-1 h-9 text-sm" onClick={() => setShowClearConfirm(false)} disabled={clearing}>
+                Cancelar
+              </Button>
+              <Button className="flex-1 h-9 text-sm bg-red-600 hover:bg-red-700 text-white" onClick={handleClearCatalog} disabled={clearing}>
+                {clearing ? 'Eliminando...' : 'Sí, eliminar todo'}
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )
