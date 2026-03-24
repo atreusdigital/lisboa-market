@@ -141,10 +141,8 @@ export function BulkImportDialog({ open, onClose, branches, profileBranchId, isD
 
     const CHUNK = 100
 
-    // 1. Upsert all products in batches (conflict on barcode when present, else on name)
-    const withBarcode = validRows.filter((r) => r.barcode)
-    const withoutBarcode = validRows.filter((r) => !r.barcode)
-
+    // 1. Upsert all products by name (name has UNIQUE constraint).
+    // This correctly updates existing products even if their barcode changed.
     const toPayload = (r: ParsedRow) => ({
       name: r.name,
       category: r.category || 'General',
@@ -156,13 +154,9 @@ export function BulkImportDialog({ open, onClose, branches, profileBranchId, isD
       rappi_price: r.rappi_price,
     })
 
-    for (let i = 0; i < withBarcode.length; i += CHUNK) {
+    for (let i = 0; i < validRows.length; i += CHUNK) {
       await supabase.from('products')
-        .upsert(withBarcode.slice(i, i + CHUNK).map(toPayload), { onConflict: 'barcode' })
-    }
-    for (let i = 0; i < withoutBarcode.length; i += CHUNK) {
-      await supabase.from('products')
-        .upsert(withoutBarcode.slice(i, i + CHUNK).map(toPayload), { onConflict: 'name' })
+        .upsert(validRows.slice(i, i + CHUNK).map(toPayload), { onConflict: 'name' })
     }
 
     // 2. Fetch ALL products to build barcode/name → id maps (avoids URL limit with .in())
