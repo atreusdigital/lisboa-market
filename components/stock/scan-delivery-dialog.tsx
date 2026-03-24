@@ -247,9 +247,9 @@ export function ScanDeliveryDialog({ open, onClose, products, branches, profileB
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl w-[95vw] max-h-[92vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-base font-semibold flex items-center gap-2">
+          <DialogTitle className="text-lg font-semibold flex items-center gap-2">
             <Camera className="w-4 h-4" />
             Escanear pedido con IA
           </DialogTitle>
@@ -327,15 +327,15 @@ export function ScanDeliveryDialog({ open, onClose, products, branches, profileB
               )}
             </div>
 
-            <p className="text-sm text-muted-foreground">
+            <p className="text-base text-muted-foreground">
               Se identificaron <strong>{scannedItems.length}</strong> productos.{' '}
-              <span className={cn(matchedCount === scannedItems.length ? 'text-green-600' : 'text-amber-600')}>
+              <span className={cn(matchedCount === scannedItems.length ? 'text-green-600' : 'text-amber-600', 'font-medium')}>
                 {matchedCount}/{scannedItems.length} encontrados en catálogo.
               </span>
             </p>
 
             {/* Products table */}
-            <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+            <div className="space-y-3 max-h-[50vh] overflow-y-auto pr-1">
               {scannedItems.map((item, i) => {
                 const catalogProduct = products.find(p => p.id === item.product_id)
                 const searchResults = manualSearch[i]
@@ -344,38 +344,38 @@ export function ScanDeliveryDialog({ open, onClose, products, branches, profileB
 
                 return (
                   <div key={i} className={cn(
-                    'rounded-lg border p-3 space-y-2',
+                    'rounded-lg border p-4 space-y-3',
                     item.matched ? 'border-emerald-200 bg-emerald-50/40' : 'border-amber-200 bg-amber-50/40'
                   )}>
                     {/* Row 1: invoice description + quantity */}
-                    <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start justify-between gap-4">
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs text-muted-foreground">Factura: {item.descripcion_factura}</p>
+                        <p className="text-sm text-muted-foreground">Factura: {item.descripcion_factura}</p>
                         {item.matched ? (
-                          <p className="text-sm font-semibold text-emerald-700 truncate">{item.matched_name}</p>
+                          <p className="text-base font-semibold text-emerald-700 mt-0.5">{item.matched_name}</p>
                         ) : (
-                          <p className="text-xs text-amber-600 flex items-center gap-1">
-                            <AlertTriangle className="w-3 h-3" /> No encontrado — buscá manualmente:
+                          <p className="text-sm text-amber-600 flex items-center gap-1 mt-0.5">
+                            <AlertTriangle className="w-4 h-4" /> No encontrado — buscá manualmente:
                           </p>
                         )}
                       </div>
                       <div className="shrink-0">
-                        <Label className="text-[10px] text-muted-foreground">Cant.</Label>
+                        <Label className="text-xs text-muted-foreground">Cant.</Label>
                         <Input
                           type="number"
                           value={item.cantidad}
                           onChange={e => updateQuantity(i, parseInt(e.target.value) || 0)}
                           min="0"
-                          className="w-16 h-7 text-xs text-center mt-0.5"
+                          className="w-20 h-9 text-sm text-center mt-1"
                         />
                       </div>
                     </div>
 
                     {/* Row 2: prices */}
                     {(item.precio_unit || catalogProduct) && (
-                      <div className="flex gap-4 text-xs">
+                      <div className="flex gap-6 text-sm">
                         {item.precio_unit && (
-                          <span className="text-muted-foreground">Costo factura: <strong>{fmt(item.precio_unit)}</strong></span>
+                          <span className="text-muted-foreground">Costo factura: <strong className="text-foreground">{fmt(item.precio_unit)}</strong></span>
                         )}
                         {catalogProduct?.sell_price && (
                           <span className="text-muted-foreground">Mostrador: <strong className="text-foreground">{fmt(catalogProduct.sell_price)}</strong></span>
@@ -422,9 +422,9 @@ export function ScanDeliveryDialog({ open, onClose, products, branches, profileB
 
             {/* Taxes breakdown */}
             {(invoice.iva_monto || invoice.iibb_monto || invoice.subtotal || invoice.total) && (
-              <div className="rounded-lg border border-border p-3 space-y-1.5 text-xs">
-                <p className="font-semibold text-xs uppercase tracking-wider text-muted-foreground mb-2">Impuestos detectados</p>
-                <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+              <div className="rounded-lg border border-border p-4 space-y-2 text-sm">
+                <p className="font-semibold text-sm uppercase tracking-wider text-muted-foreground mb-2">Impuestos detectados</p>
+                <div className="grid grid-cols-2 gap-x-6 gap-y-1.5">
                   {invoice.subtotal != null && (
                     <><span className="text-muted-foreground">Subtotal</span><span className="text-right font-medium">{fmt(invoice.subtotal)}</span></>
                   )}
