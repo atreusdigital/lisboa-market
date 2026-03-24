@@ -127,8 +127,8 @@ export function ScanDeliveryDialog({ open, onClose, products, branches, profileB
       formData.append('image', imageFile)
 
       const res = await fetch('/api/ai/scan-delivery', { method: 'POST', body: formData })
-      if (!res.ok) throw new Error('Error al procesar la imagen')
       const data = await res.json()
+      if (!res.ok) throw new Error(data?.error ?? `Error ${res.status}`)
 
       setInvoice(data)
 
@@ -266,7 +266,9 @@ export function ScanDeliveryDialog({ open, onClose, products, branches, profileB
               <div className="space-y-1.5">
                 <Label className="text-xs">Sucursal de destino</Label>
                 <Select value={branchId} onValueChange={v => v && setBranchId(v)}>
-                  <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Seleccionar sucursal" /></SelectTrigger>
+                  <SelectTrigger className="h-9 text-sm">
+                    <span>{branches.find(b => b.id === branchId)?.name ?? 'Seleccionar sucursal'}</span>
+                  </SelectTrigger>
                   <SelectContent>
                     {branches.map(b => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
                   </SelectContent>
