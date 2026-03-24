@@ -49,14 +49,24 @@ interface Props {
 }
 
 // ── Fuzzy matching ──────────────────────────────────────────
+// Generic tokens that match across unrelated products — excluded from scoring
+const STOP_TOKENS = new Set([
+  'de', 'la', 'el', 'un', 'en', 'con', 'sin', 'por', 'del',
+  'und', 'uni', 'caja', 'pack', 'paq', 'sobre', 'bols',
+])
+// Weight/size patterns like 75g, 125g, 500ml, 1kg, 1lt — too generic
+const SIZE_RE = /^\d+(\.\d+)?(g|ml|kg|lt|cc|mg|gr|oz|un|x)$/
+
 function normalizeStr(s: string): string[] {
   return s
     .toLowerCase()
-    .replace(/[.,xX×\/\\()\[\]]/g, ' ')
+    .replace(/[.,×\/\\()\[\]]/g, ' ')  // removed x/X — preserve letters in brand names
     .replace(/\s+/g, ' ')
     .trim()
     .split(' ')
-    .filter(t => t.length >= 2)
+    .filter(t => t.length >= 3)        // min 3 chars to reduce false positives
+    .filter(t => !STOP_TOKENS.has(t))
+    .filter(t => !SIZE_RE.test(t))     // exclude weight/size tokens
 }
 
 function tokenSimilarity(a: string, b: string): number {
@@ -67,7 +77,9 @@ function tokenSimilarity(a: string, b: string): number {
   let matches = 0
   for (const at of aTokens) {
     for (const bt of bTokens) {
-      if (at === bt || at.startsWith(bt) || bt.startsWith(at)) {
+      // Exact match or one is prefix of the other (min 4 chars to avoid "cho" matching "chocolate" + "chorizo")
+      const minLen = Math.min(at.length, bt.length)
+      if (at === bt || (minLen >= 4 && (at.startsWith(bt) || bt.startsWith(at)))) {
         matches++
         break
       }
