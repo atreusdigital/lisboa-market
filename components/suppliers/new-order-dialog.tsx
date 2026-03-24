@@ -120,12 +120,29 @@ export function NewOrderDialog({ open, onClose, suppliers, branches, products, p
         return words.length > 0 && words.every((w) => na.includes(w))
       }
 
-      const matched: ScannedItem[] = (data.items ?? []).map((item: { name: string; quantity: number }) => {
-        const product = products.find((p) => fuzzyMatch(p.name, item.name))
+      const matched: ScannedItem[] = (data.items ?? []).map((item: {
+        descripcion_factura?: string; name?: string;
+        cantidad?: number; quantity?: number;
+        precio_unit?: number | null; codigo_factura?: string | null;
+      }) => {
+        const invoiceName = item.descripcion_factura ?? item.name ?? ''
+        const invoiceQty = item.cantidad ?? item.quantity ?? 1
+        const invoiceBarcode = item.codigo_factura ?? null
+
+        // 1. Barcode exact match
+        let product = invoiceBarcode
+          ? products.find((p) => p.barcode === invoiceBarcode)
+          : undefined
+
+        // 2. Fuzzy name match
+        if (!product) {
+          product = products.find((p) => fuzzyMatch(p.name, invoiceName))
+        }
+
         return {
-          name: product?.name ?? item.name,
-          quantity: item.quantity,
-          unit_price: product?.cost_price ?? 0,
+          name: product?.name ?? invoiceName,
+          quantity: invoiceQty,
+          unit_price: item.precio_unit ?? product?.cost_price ?? 0,
           product_id: product?.id ?? '',
           matched: !!product,
         }
