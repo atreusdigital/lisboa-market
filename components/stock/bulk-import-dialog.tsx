@@ -140,8 +140,31 @@ export function BulkImportDialog({ open, onClose, branches, profileBranchId, isD
 
     const CHUNK = 100
 
-    // 1. Upsert all products by name (name has UNIQUE constraint).
-    // This correctly updates existing products even if their barcode changed.
+    // 1. Dedup barcodes within the CSV: if multiple rows share the same barcode, only the first keeps it.
+    //    This avoids UNIQUE constraint violations on barcode when upserting by name.
+    const seenBarcodes = new Set<string>()
+    const dedupedRows = validRows.map(r => {
+      if (!r.barcode) return r
+      if (seenBarcodes.has(r.barcode)) return { ...r, barcode: '' }
+      seenBarcodes.add(r.barcode)
+      return r
+    })
+
+    // 2. Also fetch existing barcodes from DB to avoid conflicts with already-stored products.
+    const existingBarcodesRes = await supabase.from('products').select('barcode, name').not('barcode', 'is', null)
+    const existingBarcodeMap = new Map<string, string>() // barcode → name
+    for (const p of existingBarcodesRes.data ?? []) {
+      if (p.barcode) existingBarcodeMap.set(p.barcode, p.name)
+    }
+
+    // Nullify barcode if it belongs to a different product in the DB
+    const safeRows = dedupedRows.map(r => {
+      if (!r.barcode) return r
+      const existingName = existingBarcodeMap.get(r.barcode)
+      if (existingName && existingName !== r.name) return { ...r, barcode: '' }
+      return r
+    })
+
     const toPayload = (r: ParsedRow) => ({
       name: r.name,
       category: r.category || 'General',
@@ -153,9 +176,16 @@ export function BulkImportDialog({ open, onClose, branches, profileBranchId, isD
       rappi_price: r.rappi_price,
     })
 
-    for (let i = 0; i < validRows.length; i += CHUNK) {
-      await supabase.from('products')
-        .upsert(validRows.slice(i, i + CHUNK).map(toPayload), { onConflict: 'name' })
+    // 3. Upsert by name. If a chunk fails (shouldn't happen after dedup), retry row by row.
+    for (let i = 0; i < safeRows.length; i += CHUNK) {
+      const chunk = safeRows.slice(i, i + CHUNK).map(toPayload)
+      const { error } = await supabase.from('products').upsert(chunk, { onConflict: 'name' })
+      if (error) {
+        // Retry individually to skip the conflicting row without losing the rest
+        for (const row of chunk) {
+          await supabase.from('products').upsert([row], { onConflict: 'name' })
+        }
+      }
     }
 
     // 2. Fetch ALL products to build barcode/name → id maps (avoids URL limit with .in())
