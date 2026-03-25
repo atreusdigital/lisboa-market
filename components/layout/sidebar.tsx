@@ -27,10 +27,10 @@ const navItems = [
   { href: '/sales', label: 'Ventas', icon: Receipt, roles: ['director', 'admin'] },
   { href: '/pos', label: 'Punto de Venta', icon: ShoppingCart, roles: ['director', 'admin', 'empleado'] },
   { href: '/caja', label: 'Caja', icon: Wallet, roles: ['director', 'admin', 'empleado'] },
-  { href: '/stock', label: 'Stock', icon: Package, roles: ['director', 'admin', 'empleado'] },
+  { href: '/stock', label: 'Productos', icon: Package, roles: ['director', 'admin', 'empleado'] },
   { href: '/families', label: 'Familias', icon: Layers, roles: ['director', 'admin'] },
   { href: '/promotions', label: 'Promociones', icon: Tag, roles: ['director', 'admin'] },
-  { href: '/suppliers', label: 'Proveedores', icon: Truck, roles: ['director', 'admin'] },
+  { href: '/suppliers', label: 'Compras', icon: Truck, roles: ['director', 'admin'] },
   { href: '/alerts', label: 'Alertas', icon: Bell, roles: ['director', 'admin'] },
   { href: '/analytics', label: 'Reportes', icon: BarChart3, roles: ['director', 'admin'] },
 ]

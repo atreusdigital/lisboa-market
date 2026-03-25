@@ -277,6 +277,43 @@ export function ScanDeliveryDialog({ open, onClose, products, branches, profileB
         })
       }
 
+      // Save purchase record with invoice image
+      let imageBase64: string | null = null
+      if (imageFile) {
+        const compressed = await compressImage(imageFile)
+        const buf = await compressed.arrayBuffer()
+        imageBase64 = Buffer.from(buf).toString('base64')
+      }
+
+      const catalogMap = Object.fromEntries(products.map(p => [p.id, p]))
+      await fetch('/api/purchases', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          branch_id: branchId,
+          proveedor: invoice?.proveedor ?? null,
+          fecha: invoice?.fecha ?? null,
+          numero_factura: invoice?.numero_factura ?? null,
+          invoice_image_base64: imageBase64,
+          subtotal: invoice?.subtotal ?? null,
+          iva_monto: invoice?.iva_monto ?? null,
+          iibb_monto: invoice?.iibb_monto ?? null,
+          total: invoice?.total ?? null,
+          items: matchedItems.map(item => {
+            const qty = item.cantidad > 1 ? item.cantidad : 1
+            const costUnit = item.precio_unit ? item.precio_unit / qty : null
+            const sellPrice = catalogMap[item.product_id!]?.sell_price ?? null
+            return {
+              product_id: item.product_id!,
+              descripcion_factura: item.descripcion_factura,
+              cantidad: item.cantidad,
+              costo_unit: costUnit,
+              sell_price: sellPrice,
+            }
+          }),
+        }),
+      })
+
       toast.success(`Stock actualizado: ${matchedItems.length} productos`)
       setStep('done')
     } catch (err) {

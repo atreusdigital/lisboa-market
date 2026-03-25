@@ -48,7 +48,7 @@ export default async function StockPage() {
 
   return (
     <>
-      <Header title="Stock" alertCount={alertCount ?? 0} />
+      <Header title="Productos" alertCount={alertCount ?? 0} />
       <div className="p-4 md:p-6">
         <StockModule
           stockItems={stockItems}

@@ -17,8 +17,8 @@ const navItems = [
   { href: '/', label: 'Inicio', icon: LayoutDashboard, roles: ['director', 'admin', 'empleado'], exact: true },
   { href: '/pos', label: 'POS', icon: ShoppingCart, roles: ['director', 'admin', 'empleado'] },
   { href: '/caja', label: 'Caja', icon: Wallet, roles: ['director', 'admin', 'empleado'] },
-  { href: '/stock', label: 'Stock', icon: Package, roles: ['director', 'admin', 'empleado'] },
-  { href: '/suppliers', label: 'Pedidos', icon: Truck, roles: ['director', 'admin'] },
+  { href: '/stock', label: 'Productos', icon: Package, roles: ['director', 'admin', 'empleado'] },
+  { href: '/suppliers', label: 'Compras', icon: Truck, roles: ['director', 'admin'] },
   { href: '/alerts', label: 'Alertas', icon: Bell, roles: ['director', 'admin'] },
 ]
 

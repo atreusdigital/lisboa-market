@@ -7,7 +7,7 @@ import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Plus, AlertCircle, CheckCircle, Clock, Package } from 'lucide-react'
+import { Plus, AlertCircle, CheckCircle, Clock, Package, Image as ImageIcon, TrendingUp, TrendingDown } from 'lucide-react'
 import { NewOrderDialog } from './new-order-dialog'
 import { AddSupplierDialog } from './add-supplier-dialog'
 import { cn } from '@/lib/utils'
@@ -39,6 +39,11 @@ export function SuppliersModule({ suppliers, orders, accounts, branches, product
   const [selectedOrder, setSelectedOrder] = useState<SupplierOrder | null>(null)
   const [orderItems, setOrderItems] = useState<SupplierOrderItem[]>([])
   const [loadingItems, setLoadingItems] = useState(false)
+  const [purchases, setPurchases] = useState<any[]>([])
+  const [loadingPurchases, setLoadingPurchases] = useState(false)
+  const [selectedPurchase, setSelectedPurchase] = useState<any | null>(null)
+  const [purchaseItems, setPurchaseItems] = useState<any[]>([])
+  const [loadingPurchaseItems, setLoadingPurchaseItems] = useState(false)
   const supabase = createClient()
 
   const formatCurrency = (n: number) =>
@@ -53,6 +58,25 @@ export function SuppliersModule({ suppliers, orders, accounts, branches, product
       .eq('order_id', order.id)
     setOrderItems(data ?? [])
     setLoadingItems(false)
+  }
+
+  async function loadPurchases() {
+    if (purchases.length > 0) return
+    setLoadingPurchases(true)
+    const branchParam = profile.role === 'admin' && profile.branch_id ? `?branch_id=${profile.branch_id}` : ''
+    const res = await fetch(`/api/purchases${branchParam}`)
+    const data = await res.json()
+    setPurchases(data)
+    setLoadingPurchases(false)
+  }
+
+  async function openPurchaseDetail(purchase: any) {
+    setSelectedPurchase(purchase)
+    setLoadingPurchaseItems(true)
+    const res = await fetch(`/api/purchases?id=${purchase.id}`)
+    const data = await res.json()
+    setPurchaseItems(data)
+    setLoadingPurchaseItems(false)
   }
 
   async function confirmOrder(orderId: string) {
@@ -70,7 +94,7 @@ export function SuppliersModule({ suppliers, orders, accounts, branches, product
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold">Proveedores</h2>
+          <h2 className="text-lg font-semibold">Compras</h2>
           <p className="text-sm text-muted-foreground">{orders.length} pedidos registrados</p>
         </div>
         <div className="flex items-center gap-2">
@@ -95,12 +119,65 @@ export function SuppliersModule({ suppliers, orders, accounts, branches, product
         </div>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
+      <Tabs value={activeTab} onValueChange={v => { setActiveTab(v); if (v === 'purchases') loadPurchases() }}>
         <TabsList className="h-8">
+          <TabsTrigger value="purchases" className="text-xs h-7">Historial de compras</TabsTrigger>
           <TabsTrigger value="orders" className="text-xs h-7">Pedidos</TabsTrigger>
           <TabsTrigger value="accounts" className="text-xs h-7">Cuentas corrientes</TabsTrigger>
           <TabsTrigger value="suppliers" className="text-xs h-7">Proveedores</TabsTrigger>
         </TabsList>
+
+        {/* HISTORIAL DE COMPRAS (scan-delivery) */}
+        <TabsContent value="purchases" className="mt-4">
+          {loadingPurchases ? (
+            <p className="text-sm text-muted-foreground text-center py-10">Cargando...</p>
+          ) : purchases.length === 0 ? (
+            <div className="text-center py-12 text-sm text-muted-foreground">
+              <Package className="w-10 h-10 mx-auto mb-3 opacity-20" />
+              <p>No hay compras registradas</p>
+              <p className="text-xs mt-1">Escaneá una factura desde Productos → Escanear remito</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {purchases.map((p) => (
+                <Card
+                  key={p.id}
+                  className="border-border cursor-pointer hover:border-neutral-400 transition-colors overflow-hidden"
+                  onClick={() => openPurchaseDetail(p)}
+                >
+                  <div className="flex items-stretch">
+                    {/* Invoice thumbnail */}
+                    {p.invoice_image_url ? (
+                      <div className="w-20 shrink-0 bg-neutral-100 flex items-center justify-center border-r border-border">
+                        <img src={p.invoice_image_url} alt="Factura" className="w-full h-full object-cover" />
+                      </div>
+                    ) : (
+                      <div className="w-16 shrink-0 bg-neutral-50 flex items-center justify-center border-r border-border">
+                        <ImageIcon className="w-5 h-5 text-neutral-300" />
+                      </div>
+                    )}
+                    <div className="flex-1 p-4">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <p className="text-sm font-semibold">{p.proveedor ?? 'Proveedor desconocido'}</p>
+                          {p.numero_factura && <p className="text-xs text-muted-foreground">Fact. #{p.numero_factura}</p>}
+                        </div>
+                        <div className="text-right shrink-0">
+                          {p.total && <p className="text-sm font-bold tabular-nums">{formatCurrency(p.total)}</p>}
+                          <p className="text-xs text-muted-foreground">{p.items_count} productos</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
+                        <span>{p.fecha ?? new Date(p.created_at).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
+                        {p.iva_monto && <span>IVA: {formatCurrency(p.iva_monto)}</span>}
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          )}
+        </TabsContent>
 
         {/* PEDIDOS */}
         <TabsContent value="orders" className="mt-4">
@@ -286,6 +363,82 @@ export function SuppliersModule({ suppliers, orders, accounts, branches, product
                         </div>
                       </div>
                     ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* DIALOG DETALLE COMPRA */}
+      {selectedPurchase && (
+        <Dialog open={!!selectedPurchase} onOpenChange={() => setSelectedPurchase(null)}>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="text-base font-semibold">
+                {selectedPurchase.proveedor ?? 'Compra escaneada'}
+                {selectedPurchase.numero_factura && <span className="text-muted-foreground font-normal text-sm ml-2">#{selectedPurchase.numero_factura}</span>}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 mt-1">
+              {/* Header info + imagen */}
+              <div className="flex gap-4">
+                <div className="flex-1 grid grid-cols-2 gap-3 text-sm">
+                  <div><p className="text-xs text-muted-foreground">Fecha</p><p className="font-medium">{selectedPurchase.fecha ?? new Date(selectedPurchase.created_at).toLocaleDateString('es-AR')}</p></div>
+                  <div><p className="text-xs text-muted-foreground">Productos</p><p className="font-medium">{selectedPurchase.items_count}</p></div>
+                  {selectedPurchase.subtotal && <div><p className="text-xs text-muted-foreground">Subtotal</p><p className="font-medium tabular-nums">{formatCurrency(selectedPurchase.subtotal)}</p></div>}
+                  {selectedPurchase.iva_monto && <div><p className="text-xs text-muted-foreground">IVA</p><p className="font-medium tabular-nums">{formatCurrency(selectedPurchase.iva_monto)}</p></div>}
+                  {selectedPurchase.iibb_monto && <div><p className="text-xs text-muted-foreground">IIBB</p><p className="font-medium tabular-nums">{formatCurrency(selectedPurchase.iibb_monto)}</p></div>}
+                  {selectedPurchase.total && <div><p className="text-xs text-muted-foreground">Total</p><p className="font-bold text-base tabular-nums">{formatCurrency(selectedPurchase.total)}</p></div>}
+                </div>
+                {selectedPurchase.invoice_image_url && (
+                  <a href={selectedPurchase.invoice_image_url} target="_blank" rel="noopener noreferrer" className="shrink-0">
+                    <img
+                      src={selectedPurchase.invoice_image_url}
+                      alt="Factura"
+                      className="w-28 rounded-lg border border-border object-cover hover:opacity-80 transition-opacity"
+                    />
+                  </a>
+                )}
+              </div>
+
+              {/* Items */}
+              <div>
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Detalle de productos</p>
+                {loadingPurchaseItems ? (
+                  <p className="text-sm text-center py-4 text-muted-foreground">Cargando...</p>
+                ) : (
+                  <div className="border border-border rounded-lg overflow-hidden">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="bg-neutral-50 border-b border-border">
+                          <th className="text-left px-3 py-2 text-muted-foreground font-medium">Producto</th>
+                          <th className="text-center px-3 py-2 text-muted-foreground font-medium">Cant.</th>
+                          <th className="text-right px-3 py-2 text-muted-foreground font-medium">Costo c/u</th>
+                          <th className="text-right px-3 py-2 text-muted-foreground font-medium">Total costo</th>
+                          <th className="text-right px-3 py-2 text-muted-foreground font-medium">Mostrador</th>
+                          <th className="text-right px-3 py-2 text-muted-foreground font-medium">Rent.</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border">
+                        {purchaseItems.map((item: any) => (
+                          <tr key={item.id} className="hover:bg-neutral-50">
+                            <td className="px-3 py-2">
+                              <p className="font-medium text-foreground">{item.product?.name ?? '—'}</p>
+                              <p className="text-muted-foreground text-[10px]">{item.descripcion_factura}</p>
+                            </td>
+                            <td className="px-3 py-2 text-center tabular-nums">{item.cantidad}</td>
+                            <td className="px-3 py-2 text-right tabular-nums">{item.costo_unit ? formatCurrency(item.costo_unit) : '—'}</td>
+                            <td className="px-3 py-2 text-right tabular-nums">{item.costo_total ? formatCurrency(item.costo_total) : '—'}</td>
+                            <td className="px-3 py-2 text-right tabular-nums">{item.sell_price ? formatCurrency(item.sell_price) : '—'}</td>
+                            <td className={cn('px-3 py-2 text-right tabular-nums font-semibold', item.rent_pct >= 20 ? 'text-emerald-600' : item.rent_pct !== null ? 'text-red-500' : '')}>
+                              {item.rent_pct !== null ? `${item.rent_pct}%` : '—'}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 )}
               </div>
