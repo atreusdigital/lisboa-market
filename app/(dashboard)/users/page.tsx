@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { Header } from '@/components/layout/header'
 import { UsersModule } from '@/components/users/users-module'
+import { DEFAULT_PERMISSIONS } from '@/app/api/admin/role-permissions/route'
 
 export default async function UsersPage() {
   const supabase = await createClient()
@@ -33,6 +34,13 @@ export default async function UsersPage() {
   const { count: alertCount } = await supabase
     .from('alerts').select('id', { count: 'exact', head: true }).eq('status', 'active')
 
+  // Load role permissions from settings (fall back to defaults if table doesn't exist)
+  let rolePermissions = DEFAULT_PERMISSIONS
+  try {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'}/api/admin/role-permissions`, { cache: 'no-store' })
+    if (res.ok) rolePermissions = await res.json()
+  } catch {}
+
   return (
     <>
       <Header title="Usuarios y actividad" alertCount={alertCount ?? 0} />
@@ -42,6 +50,7 @@ export default async function UsersPage() {
           branches={branches ?? []}
           activityLog={activityLog ?? []}
           currentProfile={profile}
+          rolePermissions={rolePermissions}
         />
       </div>
     </>
