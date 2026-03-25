@@ -126,7 +126,7 @@ export function StockModule({ stockItems, branches, products, profile }: Props) 
         <div>
           <h2 className="text-lg font-semibold">Inventario</h2>
           <p className="text-sm text-muted-foreground">
-            {stockItems.length} productos
+            {allItems.length} productos en total{search || branchFilter !== 'all' || statusFilter !== 'all' ? ` · ${filtered.length} mostrando` : ''}
             {lowStockCount > 0 && (
               <span className="ml-2 text-red-500 font-medium">{lowStockCount} bajo stock mínimo</span>
             )}

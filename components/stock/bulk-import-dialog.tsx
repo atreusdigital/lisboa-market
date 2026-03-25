@@ -186,7 +186,9 @@ export function BulkImportDialog({ open, onClose, branches, profileBranchId, isD
         .upsert(stockRows.slice(i, i + CHUNK), { onConflict: 'product_id,branch_id' })
     }
 
-    setImportedCount(stockRows.length)
+    // Get real total product count from DB
+    const { count } = await supabase.from('products').select('*', { count: 'exact', head: true })
+    setImportedCount(count ?? validRows.length)
     setImporting(false)
     setStep('done')
   }
@@ -381,10 +383,7 @@ export function BulkImportDialog({ open, onClose, branches, profileBranchId, isD
             <div>
               <p className="text-base font-semibold">Importación completada</p>
               <p className="text-sm text-muted-foreground mt-1">
-                Se importaron <span className="font-medium text-foreground">{importedCount} productos</span> correctamente.
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">
-                Si el producto ya existía, se actualizó precio y stock.
+                El catálogo tiene ahora <span className="font-bold text-foreground text-lg">{importedCount.toLocaleString('es-AR')}</span> productos en total.
               </p>
             </div>
             <Button size="sm" className="bg-black text-white hover:bg-neutral-800 text-xs" onClick={handleClose}>
