@@ -161,9 +161,9 @@ export function BulkImportDialog({ open, onClose, branches, profileBranchId, isD
     setImporting(true)
     setImportProgress('Preparando...')
 
-    const CHUNK = 200
+    const CHUNK = 300
 
-    // 1. Dedup names within CSV (keep first occurrence)
+    // Dedup names (keep first occurrence)
     const seenNames = new Set<string>()
     const dedupedRows = validRows.filter(r => {
       if (seenNames.has(r.name)) return false
@@ -171,7 +171,7 @@ export function BulkImportDialog({ open, onClose, branches, profileBranchId, isD
       return true
     })
 
-    // 2. Dedup barcodes within CSV (keep first occurrence per barcode)
+    // Dedup barcodes within CSV (keep first per barcode)
     const seenBarcodes = new Set<string>()
     const rowsForImport = dedupedRows.map(r => {
       if (!r.barcode) return r
@@ -181,68 +181,73 @@ export function BulkImportDialog({ open, onClose, branches, profileBranchId, isD
     })
 
     const total = rowsForImport.length
-    const totalChunks = Math.ceil(total / CHUNK)
+    let errors = 0
 
-    // PASS 1: Upsert ALL products with barcode = null
-    // Guaranteed 100% success — no barcode UNIQUE conflicts possible with null barcodes.
+    // PASS 1: insertar todos sin barcode via API (usa service_role, bypassa RLS)
     for (let i = 0; i < rowsForImport.length; i += CHUNK) {
-      const chunkNum = Math.floor(i / CHUNK) + 1
       setImportProgress(`Importando productos... ${Math.min(i + CHUNK, total)}/${total}`)
       const chunk = rowsForImport.slice(i, i + CHUNK).map(r => ({
         name: r.name,
         category: r.category || 'General',
         subcategory: r.subcategory || null,
-        barcode: null,
+        barcode: null as null,
         cost_price: r.cost_price,
         sell_price: r.sell_price,
         pedidos_ya_price: r.pedidos_ya_price,
         rappi_price: r.rappi_price,
       }))
-      await supabase.from('products').upsert(chunk, { onConflict: 'name' })
+      const res = await fetch('/api/import-products', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ products: chunk, pass: 'names' }),
+      })
+      if (!res.ok) errors++
     }
 
-    // PASS 2: Set barcodes in parallel batches of 50
-    // After pass 1 all products have barcode = null, so no conflicts among imported products.
+    // PASS 2: asignar barcodes via API (uno por chunk para evitar timeouts)
     const rowsWithBarcode = rowsForImport.filter(r => r.barcode)
-    const BARCODE_BATCH = 50
-    for (let i = 0; i < rowsWithBarcode.length; i += BARCODE_BATCH) {
-      setImportProgress(`Asignando códigos de barras... ${Math.min(i + BARCODE_BATCH, rowsWithBarcode.length)}/${rowsWithBarcode.length}`)
-      const batch = rowsWithBarcode.slice(i, i + BARCODE_BATCH)
-      await Promise.allSettled(batch.map(r =>
-        supabase.from('products').update({ barcode: r.barcode || null }).eq('name', r.name)
-      ))
+    const BARCODE_CHUNK = 200
+    for (let i = 0; i < rowsWithBarcode.length; i += BARCODE_CHUNK) {
+      setImportProgress(`Asignando códigos... ${Math.min(i + BARCODE_CHUNK, rowsWithBarcode.length)}/${rowsWithBarcode.length}`)
+      const chunk = rowsWithBarcode.slice(i, i + BARCODE_CHUNK).map(r => ({
+        name: r.name,
+        barcode: r.barcode,
+      }))
+      await fetch('/api/import-products', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ products: chunk, pass: 'barcodes' }),
+      })
     }
 
-    // 2. Fetch ALL products to build barcode/name → id maps (avoids URL limit with .in())
+    // PASS 3: stock (client-side está bien para esto)
+    setImportProgress('Actualizando stock...')
     const allProducts: { id: string; barcode: string | null; name: string }[] = []
     let from = 0
-    const PAGE = 1000
     while (true) {
-      const { data } = await supabase.from('products').select('id, barcode, name').range(from, from + PAGE - 1)
+      const { data } = await supabase.from('products').select('id, barcode, name').range(from, from + 999)
       if (!data || data.length === 0) break
       allProducts.push(...data)
-      if (data.length < PAGE) break
-      from += PAGE
+      if (data.length < 1000) break
+      from += 1000
     }
-
-    const barcodeMap = Object.fromEntries(allProducts.filter((p) => p.barcode).map((p) => [p.barcode!, p.id]))
-    const nameMap = Object.fromEntries(allProducts.map((p) => [p.name, p.id]))
-
-    // 3. Build stock upsert payload
-    const stockRows = validRows.flatMap((r) => {
-      const productId = r.barcode ? barcodeMap[r.barcode] : nameMap[r.name]
+    const nameMap = Object.fromEntries(allProducts.map(p => [p.name, p.id]))
+    const barcodeMap = Object.fromEntries(allProducts.filter(p => p.barcode).map(p => [p.barcode!, p.id]))
+    const stockRows = rowsForImport.flatMap(r => {
+      const productId = r.barcode ? (barcodeMap[r.barcode] ?? nameMap[r.name]) : nameMap[r.name]
       if (!productId) return []
       return [{ product_id: productId, branch_id: selectedBranch, quantity: r.quantity, min_quantity: r.min_quantity }]
     })
-
     for (let i = 0; i < stockRows.length; i += CHUNK) {
-      await supabase.from('stock')
-        .upsert(stockRows.slice(i, i + CHUNK), { onConflict: 'product_id,branch_id' })
+      await supabase.from('stock').upsert(stockRows.slice(i, i + CHUNK), { onConflict: 'product_id,branch_id' })
     }
 
-    // Get real total product count from DB
-    const { count } = await supabase.from('products').select('*', { count: 'exact', head: true })
-    setImportedCount(count ?? validRows.length)
+    // Conteo real desde la API (service_role)
+    setImportProgress('Verificando...')
+    const countRes = await fetch('/api/import-products')
+    const { count: realCount } = await countRes.json()
+    setImportedCount(realCount ?? 0)
+    if (errors > 0) toast.error(`${errors} chunk(s) fallaron. Reintentá la importación.`)
     setImporting(false)
     setStep('done')
   }
