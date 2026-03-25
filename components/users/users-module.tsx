@@ -14,8 +14,8 @@ import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { Plus, Pencil, Trash2, Eye, EyeOff, ShieldCheck, ShieldAlert, Shield, Save } from 'lucide-react'
-import type { RolePermissions, PermissionKey } from '@/app/api/admin/role-permissions/route'
-import { PERMISSIONS } from '@/app/api/admin/role-permissions/route'
+import type { RolePermissions, PermissionKey } from '@/lib/permissions'
+import { PERMISSIONS } from '@/lib/permissions'
 
 const roleColors: Record<string, string> = {
   director: 'bg-neutral-900 text-white',

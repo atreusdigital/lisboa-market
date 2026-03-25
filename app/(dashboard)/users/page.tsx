@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { Header } from '@/components/layout/header'
 import { UsersModule } from '@/components/users/users-module'
-import { DEFAULT_PERMISSIONS } from '@/app/api/admin/role-permissions/route'
+import { DEFAULT_PERMISSIONS } from '@/lib/permissions'
 
 export default async function UsersPage() {
   const supabase = await createClient()
