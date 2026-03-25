@@ -54,20 +54,22 @@ const STOP_TOKENS = new Set([
   'de', 'la', 'el', 'un', 'en', 'con', 'sin', 'por', 'del',
   'und', 'uni', 'caja', 'pack', 'paq', 'sobre', 'bols', 'los', 'las',
 ])
-// Pure weight/size: 75g, 500ml, 1kg — but NOT x15/x10/x180 (unit counts, useful for matching)
-const SIZE_RE = /^\d+(\.\d+)?(g|ml|kg|lt|cc|mg|gr|oz)$/
 
 function normalizeStr(s: string): string[] {
   return s
     .toLowerCase()
-    .replace(/[.,+×\/\\()\[\]&]/g, ' ')   // also handle + and &
+    // Normalize "82 GR" / "82G" / "82GRS" → "82gr" BEFORE splitting
+    // Weight/size tokens are CRITICAL for differentiating product variants (162G ≠ 82G ≠ 29G)
+    .replace(/(\d+(?:\.\d+)?)\s*(grs?|gr|g|mls?|ml|kgs?|kg|lts?|lt|cc|mgs?|mg|oz)\b/g,
+      (_, num, unit) => `${num}${unit.replace(/^g$|^grs?$/, 'gr').replace(/^mls?$/, 'ml').replace(/^kgs?$/, 'kg').replace(/^lts?$/, 'lt')}`)
+    .replace(/[.,+×\/\\()\[\]&]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
     .split(' ')
     .filter(t => t.length >= 3)
     .filter(t => !STOP_TOKENS.has(t))
-    .filter(t => !SIZE_RE.test(t))
-    .filter(t => !/^\d+$/.test(t))         // exclude pure numbers like (20), (16), (32)
+    .filter(t => !/^\d+$/.test(t))  // exclude pure numbers like (20), (16), (32)
+    // Note: weight tokens like "162gr", "29gr", "500ml" are KEPT — they differentiate variants
 }
 
 // Levenshtein distance for typo tolerance (OCR errors, abbreviations)
@@ -87,9 +89,11 @@ function lev(a: string, b: string): number {
 function tokensMatch(at: string, bt: string): boolean {
   if (at === bt) return true
   const minLen = Math.min(at.length, bt.length)
-  // Prefix match: "car" matches "caramelos", "diclof" matches "diclofenac"
+  // Weight tokens (e.g. "162gr"): ONLY exact match — "162gr" must NOT match "82gr"
+  if (/\d/.test(at) && /\d/.test(bt)) return at === bt
+  // Prefix match: "car" matches "caramelos", "desod" matches "desodorante"
   if (minLen >= 3 && (at.startsWith(bt) || bt.startsWith(at))) return true
-  // Fuzzy match: 1 typo/OCR error allowed for words ≥ 6 chars ("keterolaco" → "ketorolaco")
+  // Fuzzy match: 1 typo/OCR error for words ≥ 6 chars ("keterolaco" → "ketorolaco")
   if (at.length >= 6 && bt.length >= 6 && lev(at, bt) <= 1) return true
   return false
 }
