@@ -15,20 +15,31 @@ export default async function StockPage() {
     .single()
   if (!profile) redirect('/login')
 
-  // Stock con productos y sucursales
-  let stockQuery = supabase
-    .from('stock')
-    .select('*, product:products(*), branch:branches(*)')
-    .order('updated_at', { ascending: false })
-
-  if (profile.role !== 'director' && profile.branch_id) {
-    stockQuery = stockQuery.eq('branch_id', profile.branch_id)
+  // Paginar stock (límite PostgREST = 1000 por request)
+  const stockItems: any[] = []
+  let stockFrom = 0
+  while (true) {
+    let q = supabase.from('stock').select('*, product:products(*), branch:branches(*)').order('updated_at', { ascending: false })
+    if (profile.role !== 'director' && profile.branch_id) q = q.eq('branch_id', profile.branch_id)
+    const { data } = await q.range(stockFrom, stockFrom + 999)
+    if (!data || data.length === 0) break
+    stockItems.push(...data)
+    if (data.length < 1000) break
+    stockFrom += 1000
   }
 
-  const { data: stockItems } = await stockQuery.range(0, 4999)
+  // Paginar productos
+  const allProducts: any[] = []
+  let prodFrom = 0
+  while (true) {
+    const { data } = await supabase.from('products').select('*').order('name').range(prodFrom, prodFrom + 999)
+    if (!data || data.length === 0) break
+    allProducts.push(...data)
+    if (data.length < 1000) break
+    prodFrom += 1000
+  }
 
   const { data: branches } = await supabase.from('branches').select('*')
-  const { data: products } = await supabase.from('products').select('*').order('name').range(0, 4999)
 
   const { count: alertCount } = await supabase
     .from('alerts')
@@ -40,9 +51,9 @@ export default async function StockPage() {
       <Header title="Stock" alertCount={alertCount ?? 0} />
       <div className="p-4 md:p-6">
         <StockModule
-          stockItems={stockItems ?? []}
+          stockItems={stockItems}
           branches={branches ?? []}
-          products={products ?? []}
+          products={allProducts}
           profile={profile}
         />
       </div>
