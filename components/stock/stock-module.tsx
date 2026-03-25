@@ -222,6 +222,7 @@ export function StockModule({ stockItems, branches, products, profile }: Props) 
           <table className="w-full text-xs whitespace-nowrap">
             <thead>
               <tr className="border-b border-border bg-neutral-50">
+                <th className="text-right px-2 py-2.5 font-medium text-muted-foreground uppercase tracking-wider w-10">#</th>
                 <th className="px-2 py-2.5 w-6"></th>
                 <th className="text-left px-2 py-2.5 font-medium text-muted-foreground uppercase tracking-wider">Codigo</th>
                 <th className="text-left px-2 py-2.5 font-medium text-muted-foreground uppercase tracking-wider min-w-[180px]">Descripcion</th>
@@ -250,7 +251,7 @@ export function StockModule({ stockItems, branches, products, profile }: Props) 
                   </td>
                 </tr>
               ) : (
-                filtered.map((item) => {
+                filtered.map((item, idx) => {
                   const p = item.product
                   const isLow = item.quantity <= item.min_quantity
                   const isCritical = item.quantity === 0
@@ -263,6 +264,7 @@ export function StockModule({ stockItems, branches, products, profile }: Props) 
                         </button>
                       </td>
                       {/* Codigo */}
+                      <td className="px-2 py-2 text-right text-[11px] text-muted-foreground tabular-nums w-10">{idx + 1}</td>
                       <td className="px-2 py-2 font-mono text-[11px] text-muted-foreground">{p?.barcode ?? '—'}</td>
                       {/* Descripcion */}
                       <td className="px-2 py-2 font-medium min-w-[260px]">
