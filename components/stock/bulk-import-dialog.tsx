@@ -44,6 +44,27 @@ function parseNum(val: string | undefined): number {
   return isNaN(n) ? 0 : n
 }
 
+/** RFC-4180 compliant CSV line splitter — handles quoted fields with commas/newlines inside */
+function splitCSVLine(line: string, sep: string): string[] {
+  const result: string[] = []
+  let current = ''
+  let inQuotes = false
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i]
+    if (ch === '"') {
+      if (inQuotes && line[i + 1] === '"') { current += '"'; i++ } // escaped quote
+      else inQuotes = !inQuotes
+    } else if (ch === sep && !inQuotes) {
+      result.push(current.trim())
+      current = ''
+    } else {
+      current += ch
+    }
+  }
+  result.push(current.trim())
+  return result
+}
+
 function parseCSV(text: string): ParsedRow[] {
   const lines = text.trim().split('\n').filter(Boolean)
   if (lines.length < 2) return []
@@ -51,7 +72,7 @@ function parseCSV(text: string): ParsedRow[] {
   const sep = lines[0].includes(';') ? ';' : ','
 
   return lines.slice(1).map((line, i) => {
-    const cols = line.split(sep).map((c) => c.trim().replace(/^"|"$/g, ''))
+    const cols = splitCSVLine(line, sep)
     const [
       barcode,
       name,
