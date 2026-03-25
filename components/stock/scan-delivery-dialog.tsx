@@ -252,10 +252,11 @@ export function ScanDeliveryDialog({ open, onClose, products, branches, profileB
           })
         }
 
-        // Update cost if we have the unit price from invoice
+        // Update cost with per-unit price (invoice price / quantity)
         if (item.precio_unit && item.precio_unit > 0) {
+          const costPerUnit = item.cantidad > 1 ? item.precio_unit / item.cantidad : item.precio_unit
           await supabase.from('products')
-            .update({ cost_price: item.precio_unit })
+            .update({ cost_price: costPerUnit })
             .eq('id', item.product_id!)
         }
       }
@@ -429,22 +430,34 @@ export function ScanDeliveryDialog({ open, onClose, products, branches, profileB
                       </div>
                     </div>
 
-                    {/* Row 2: prices */}
-                    {(item.precio_unit || catalogProduct) && (
-                      <div className="flex gap-6 text-sm">
-                        {item.precio_unit && (
-                          <span className="text-muted-foreground">Costo factura: <strong className="text-foreground">{fmt(item.precio_unit)}</strong></span>
-                        )}
-                        {catalogProduct?.sell_price && (
-                          <span className="text-muted-foreground">Mostrador: <strong className="text-foreground">{fmt(catalogProduct.sell_price)}</strong></span>
-                        )}
-                        {item.precio_unit && catalogProduct?.sell_price && (
-                          <span className="text-muted-foreground">Rent: <strong className={cn(
-                            ((catalogProduct.sell_price - item.precio_unit) / catalogProduct.sell_price * 100) >= 20 ? 'text-green-600' : 'text-red-600'
-                          )}>{(((catalogProduct.sell_price - item.precio_unit) / catalogProduct.sell_price) * 100).toFixed(1)}%</strong></span>
-                        )}
-                      </div>
-                    )}
+                    {/* Row 2: prices — cost per unit = precio_unit / cantidad */}
+                    {(item.precio_unit || catalogProduct) && (() => {
+                      const qty = item.cantidad > 1 ? item.cantidad : 1
+                      const costUnit = item.precio_unit ? item.precio_unit / qty : null
+                      const sell = catalogProduct?.sell_price ?? null
+                      const rent = costUnit && sell ? ((sell - costUnit) / sell * 100) : null
+                      return (
+                        <div className="space-y-1">
+                          <div className="flex flex-wrap gap-x-6 gap-y-0.5 text-sm">
+                            {costUnit && (
+                              <span className="text-muted-foreground">
+                                Costo c/u: <strong className="text-foreground">{fmt(costUnit)}</strong>
+                                {qty > 1 && <span className="text-xs text-muted-foreground ml-1">(total bulto: {fmt(item.precio_unit!)})</span>}
+                              </span>
+                            )}
+                            {sell && (
+                              <span className="text-muted-foreground">
+                                Mostrador: <strong className="text-foreground">{fmt(sell)}</strong>
+                                {qty > 1 && <span className="text-xs text-muted-foreground ml-1">(×{qty}: {fmt(sell * qty)})</span>}
+                              </span>
+                            )}
+                            {rent !== null && (
+                              <span className="text-muted-foreground">Rent: <strong className={cn(rent >= 20 ? 'text-green-600' : 'text-red-600')}>{rent.toFixed(1)}%</strong></span>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })()}
 
                     {/* Manual search for unmatched */}
                     {!item.matched && (
