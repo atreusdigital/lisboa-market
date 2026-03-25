@@ -57,6 +57,10 @@ export function UsersModule({ users: initial, branches, activityLog, currentProf
   const [form, setForm] = useState<NewUserForm>({ full_name: '', username: '', password: '', role: 'empleado', branch_id: null })
   const [editRole, setEditRole] = useState<UserRole>('empleado')
   const [editBranch, setEditBranch] = useState<string | null>(null)
+  const [permisosRoles, setPermisosRoles] = useState<Record<string, UserRole>>(() =>
+    Object.fromEntries(initial.map(u => [u.id, u.role as UserRole]))
+  )
+  const [savingPermisos, setSavingPermisos] = useState<Record<string, boolean>>({})
   const supabase = createClient()
 
   function openNew() {
@@ -103,6 +107,17 @@ export function UsersModule({ users: initial, branches, activityLog, currentProf
     toast.success('Usuario actualizado')
     setSaving(false)
     setShowEditDialog(false)
+    window.location.reload()
+  }
+
+  async function handleSavePermiso(u: Profile) {
+    const newRole = permisosRoles[u.id]
+    if (newRole === u.role) return
+    setSavingPermisos(s => ({ ...s, [u.id]: true }))
+    const { error } = await supabase.from('profiles').update({ role: newRole }).eq('id', u.id)
+    if (error) { toast.error(error.message); setSavingPermisos(s => ({ ...s, [u.id]: false })); return }
+    toast.success(`Rol de ${u.full_name} actualizado`)
+    setSavingPermisos(s => ({ ...s, [u.id]: false }))
     window.location.reload()
   }
 
@@ -328,6 +343,75 @@ export function UsersModule({ users: initial, branches, activityLog, currentProf
               </div>
             </Card>
           </div>
+
+          {isAdmin && (
+            <div className="mt-6">
+              <h3 className="text-sm font-semibold mb-3">Asignar permisos</h3>
+              <div className="border border-border rounded-lg overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border bg-neutral-50">
+                      <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Usuario</th>
+                      <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider hidden md:table-cell">Sucursal</th>
+                      <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Rol actual</th>
+                      <th className="px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Guardar</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {users.filter(u => u.id !== currentProfile.id).map(u => {
+                      const current = permisosRoles[u.id] ?? u.role as UserRole
+                      const changed = current !== u.role
+                      return (
+                        <tr key={u.id} className="hover:bg-neutral-50 transition-colors">
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-2.5">
+                              <div className="w-7 h-7 rounded-full bg-[#1C2B23] flex items-center justify-center shrink-0">
+                                <span className="text-[11px] font-semibold text-white">{u.full_name.charAt(0).toUpperCase()}</span>
+                              </div>
+                              <span className="text-sm font-medium">{u.full_name}</span>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-sm text-muted-foreground hidden md:table-cell">
+                            {u.role === 'director' ? 'Todas' : (u.branch?.name ?? '—')}
+                          </td>
+                          <td className="px-4 py-3">
+                            <Select
+                              value={current}
+                              onValueChange={v => setPermisosRoles(s => ({ ...s, [u.id]: v as UserRole }))}
+                              disabled={u.role === 'director' && currentProfile.role !== 'director'}
+                            >
+                              <SelectTrigger className="h-7 text-xs w-36">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {currentProfile.role === 'director' && <SelectItem value="director">Dueño</SelectItem>}
+                                <SelectItem value="admin">Encargado</SelectItem>
+                                <SelectItem value="empleado">Empleado</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <button
+                              onClick={() => handleSavePermiso(u)}
+                              disabled={!changed || savingPermisos[u.id]}
+                              className={cn(
+                                'text-[10px] px-2.5 py-1 rounded font-medium transition-colors',
+                                changed
+                                  ? 'bg-neutral-900 text-white hover:bg-black'
+                                  : 'bg-neutral-100 text-neutral-400 cursor-not-allowed'
+                              )}
+                            >
+                              {savingPermisos[u.id] ? 'Guardando...' : 'Guardar'}
+                            </button>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </TabsContent>
       </Tabs>
 

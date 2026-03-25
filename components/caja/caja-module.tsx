@@ -203,7 +203,7 @@ export function CajaModule({
           <span className="text-xs text-muted-foreground font-medium">Operando en:</span>
           <Select value={selectedBranchId} onValueChange={v => setSelectedBranchId(v || branches[0]?.id || '')}>
             <SelectTrigger className="h-8 text-xs w-52">
-              <SelectValue placeholder="Seleccioná sucursal" />
+              <span>{branches.find(b => b.id === selectedBranchId)?.name ?? 'Seleccioná sucursal'}</span>
             </SelectTrigger>
             <SelectContent>
               {branches.map(b => (
@@ -284,8 +284,10 @@ export function CajaModule({
                     <Label className="text-xs">¿Quién cierra el turno?</Label>
                     <Select value={selectedUserId} onValueChange={v => v && setSelectedUserId(v)}>
                       <SelectTrigger className="h-9 text-sm">
-                        <User className="w-3.5 h-3.5 mr-2 text-muted-foreground" />
-                        <SelectValue />
+                        <div className="flex items-center gap-2">
+                          <User className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                          <span>{branchUsers.find(u => u.id === selectedUserId)?.full_name ?? profile.full_name}</span>
+                        </div>
                       </SelectTrigger>
                       <SelectContent>
                         {branchUsers.map(u => (
