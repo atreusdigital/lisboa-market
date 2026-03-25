@@ -41,9 +41,8 @@ export function SuppliersModule({ suppliers, orders, accounts, branches, product
   const [loadingItems, setLoadingItems] = useState(false)
   const [purchases, setPurchases] = useState<any[]>([])
   const [loadingPurchases, setLoadingPurchases] = useState(false)
-  const [selectedPurchase, setSelectedPurchase] = useState<any | null>(null)
-  const [purchaseItems, setPurchaseItems] = useState<any[]>([])
-  const [loadingPurchaseItems, setLoadingPurchaseItems] = useState(false)
+  const [expandedPurchaseId, setExpandedPurchaseId] = useState<string | null>(null)
+  const [purchaseItemsMap, setPurchaseItemsMap] = useState<Record<string, any[]>>({})
   const supabase = createClient()
 
   const formatCurrency = (n: number) =>
@@ -70,13 +69,14 @@ export function SuppliersModule({ suppliers, orders, accounts, branches, product
     setLoadingPurchases(false)
   }
 
-  async function openPurchaseDetail(purchase: any) {
-    setSelectedPurchase(purchase)
-    setLoadingPurchaseItems(true)
-    const res = await fetch(`/api/purchases?id=${purchase.id}`)
-    const data = await res.json()
-    setPurchaseItems(data)
-    setLoadingPurchaseItems(false)
+  async function togglePurchase(purchase: any) {
+    if (expandedPurchaseId === purchase.id) { setExpandedPurchaseId(null); return }
+    setExpandedPurchaseId(purchase.id)
+    if (!purchaseItemsMap[purchase.id]) {
+      const res = await fetch(`/api/purchases?id=${purchase.id}`)
+      const data = await res.json()
+      setPurchaseItemsMap(prev => ({ ...prev, [purchase.id]: data }))
+    }
   }
 
   async function confirmOrder(orderId: string) {
@@ -138,43 +138,103 @@ export function SuppliersModule({ suppliers, orders, accounts, branches, product
               <p className="text-xs mt-1">Escaneá una factura desde Productos → Escanear remito</p>
             </div>
           ) : (
-            <div className="space-y-3">
-              {purchases.map((p) => (
-                <Card
-                  key={p.id}
-                  className="border-border cursor-pointer hover:border-neutral-400 transition-colors overflow-hidden"
-                  onClick={() => openPurchaseDetail(p)}
-                >
-                  <div className="flex items-stretch">
-                    {/* Invoice thumbnail */}
-                    {p.invoice_image_url ? (
-                      <div className="w-20 shrink-0 bg-neutral-100 flex items-center justify-center border-r border-border">
-                        <img src={p.invoice_image_url} alt="Factura" className="w-full h-full object-cover" />
+            <div className="space-y-2">
+              {purchases.map((p) => {
+                const isOpen = expandedPurchaseId === p.id
+                const items = purchaseItemsMap[p.id]
+                return (
+                  <Card key={p.id} className={cn('border-border overflow-hidden transition-all', isOpen && 'border-neutral-400')}>
+                    {/* Header row — clickable */}
+                    <button
+                      className="w-full flex items-stretch text-left hover:bg-neutral-50 transition-colors"
+                      onClick={() => togglePurchase(p)}
+                    >
+                      {/* Thumbnail */}
+                      <div className="w-16 shrink-0 border-r border-border bg-neutral-50 flex items-center justify-center min-h-[64px]">
+                        {p.invoice_image_url
+                          ? <img src={p.invoice_image_url} alt="Factura" className="w-full h-full object-cover" />
+                          : <ImageIcon className="w-4 h-4 text-neutral-300" />}
                       </div>
-                    ) : (
-                      <div className="w-16 shrink-0 bg-neutral-50 flex items-center justify-center border-r border-border">
-                        <ImageIcon className="w-5 h-5 text-neutral-300" />
+                      <div className="flex-1 px-4 py-3 flex items-center justify-between gap-3 min-w-0">
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold truncate">{p.proveedor ?? 'Proveedor desconocido'}</p>
+                          <div className="flex items-center gap-3 mt-0.5 text-xs text-muted-foreground">
+                            <span>{p.fecha ?? new Date(p.created_at).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: '2-digit' })}</span>
+                            {p.numero_factura && <span>Fact. #{p.numero_factura}</span>}
+                            <span>{p.items_count} productos</span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3 shrink-0">
+                          <div className="text-right">
+                            {p.total && <p className="text-sm font-bold tabular-nums">{formatCurrency(p.total)}</p>}
+                            {p.iva_monto && <p className="text-xs text-muted-foreground">IVA {formatCurrency(p.iva_monto)}</p>}
+                          </div>
+                          <svg className={cn('w-4 h-4 text-neutral-400 transition-transform shrink-0', isOpen && 'rotate-180')} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+                        </div>
+                      </div>
+                    </button>
+
+                    {/* Expanded detail */}
+                    {isOpen && (
+                      <div className="border-t border-border">
+                        {/* Totals bar */}
+                        <div className="px-4 py-3 bg-neutral-50 flex flex-wrap gap-x-6 gap-y-1 text-xs border-b border-border">
+                          {p.subtotal && <span className="text-muted-foreground">Subtotal: <strong className="text-foreground tabular-nums">{formatCurrency(p.subtotal)}</strong></span>}
+                          {p.iva_monto && <span className="text-muted-foreground">IVA: <strong className="text-foreground tabular-nums">{formatCurrency(p.iva_monto)}</strong></span>}
+                          {p.iibb_monto && <span className="text-muted-foreground">IIBB: <strong className="text-foreground tabular-nums">{formatCurrency(p.iibb_monto)}</strong></span>}
+                          {p.total && <span className="text-muted-foreground font-semibold">Total: <strong className="text-foreground tabular-nums">{formatCurrency(p.total)}</strong></span>}
+                          {p.invoice_image_url && (
+                            <a href={p.invoice_image_url} target="_blank" rel="noopener noreferrer" className="ml-auto text-blue-600 hover:underline flex items-center gap-1">
+                              <ImageIcon className="w-3 h-3" /> Ver factura
+                            </a>
+                          )}
+                        </div>
+
+                        {/* Items table */}
+                        {!items ? (
+                          <p className="text-xs text-muted-foreground text-center py-4">Cargando...</p>
+                        ) : items.length === 0 ? (
+                          <p className="text-xs text-muted-foreground text-center py-4">Sin ítems</p>
+                        ) : (
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-xs">
+                              <thead>
+                                <tr className="border-b border-border">
+                                  <th className="text-left px-4 py-2 font-medium text-muted-foreground">Producto</th>
+                                  <th className="text-center px-3 py-2 font-medium text-muted-foreground">Cant.</th>
+                                  <th className="text-right px-3 py-2 font-medium text-muted-foreground">Costo c/u</th>
+                                  <th className="text-right px-3 py-2 font-medium text-muted-foreground">Total costo</th>
+                                  <th className="text-right px-3 py-2 font-medium text-muted-foreground">Mostrador</th>
+                                  <th className="text-right px-3 py-2 font-medium text-muted-foreground">Rent.</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-border">
+                                {items.map((item: any) => (
+                                  <tr key={item.id} className="hover:bg-neutral-50">
+                                    <td className="px-4 py-2.5">
+                                      <p className="font-medium text-foreground">{item.product?.name ?? '—'}</p>
+                                      {item.descripcion_factura !== item.product?.name && (
+                                        <p className="text-muted-foreground text-[10px] mt-0.5">{item.descripcion_factura}</p>
+                                      )}
+                                    </td>
+                                    <td className="px-3 py-2.5 text-center tabular-nums">{item.cantidad}</td>
+                                    <td className="px-3 py-2.5 text-right tabular-nums">{item.costo_unit ? formatCurrency(item.costo_unit) : '—'}</td>
+                                    <td className="px-3 py-2.5 text-right tabular-nums">{item.costo_total ? formatCurrency(item.costo_total) : '—'}</td>
+                                    <td className="px-3 py-2.5 text-right tabular-nums">{item.sell_price ? formatCurrency(item.sell_price) : '—'}</td>
+                                    <td className={cn('px-3 py-2.5 text-right tabular-nums font-semibold', item.rent_pct >= 20 ? 'text-emerald-600' : item.rent_pct !== null ? 'text-red-500' : '')}>
+                                      {item.rent_pct !== null ? `${item.rent_pct}%` : '—'}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
                       </div>
                     )}
-                    <div className="flex-1 p-4">
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <p className="text-sm font-semibold">{p.proveedor ?? 'Proveedor desconocido'}</p>
-                          {p.numero_factura && <p className="text-xs text-muted-foreground">Fact. #{p.numero_factura}</p>}
-                        </div>
-                        <div className="text-right shrink-0">
-                          {p.total && <p className="text-sm font-bold tabular-nums">{formatCurrency(p.total)}</p>}
-                          <p className="text-xs text-muted-foreground">{p.items_count} productos</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
-                        <span>{p.fecha ?? new Date(p.created_at).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
-                        {p.iva_monto && <span>IVA: {formatCurrency(p.iva_monto)}</span>}
-                      </div>
-                    </div>
-                  </div>
-                </Card>
-              ))}
+                  </Card>
+                )
+              })}
             </div>
           )}
         </TabsContent>
@@ -363,82 +423,6 @@ export function SuppliersModule({ suppliers, orders, accounts, branches, product
                         </div>
                       </div>
                     ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
-      )}
-
-      {/* DIALOG DETALLE COMPRA */}
-      {selectedPurchase && (
-        <Dialog open={!!selectedPurchase} onOpenChange={() => setSelectedPurchase(null)}>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle className="text-base font-semibold">
-                {selectedPurchase.proveedor ?? 'Compra escaneada'}
-                {selectedPurchase.numero_factura && <span className="text-muted-foreground font-normal text-sm ml-2">#{selectedPurchase.numero_factura}</span>}
-              </DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4 mt-1">
-              {/* Header info + imagen */}
-              <div className="flex gap-4">
-                <div className="flex-1 grid grid-cols-2 gap-3 text-sm">
-                  <div><p className="text-xs text-muted-foreground">Fecha</p><p className="font-medium">{selectedPurchase.fecha ?? new Date(selectedPurchase.created_at).toLocaleDateString('es-AR')}</p></div>
-                  <div><p className="text-xs text-muted-foreground">Productos</p><p className="font-medium">{selectedPurchase.items_count}</p></div>
-                  {selectedPurchase.subtotal && <div><p className="text-xs text-muted-foreground">Subtotal</p><p className="font-medium tabular-nums">{formatCurrency(selectedPurchase.subtotal)}</p></div>}
-                  {selectedPurchase.iva_monto && <div><p className="text-xs text-muted-foreground">IVA</p><p className="font-medium tabular-nums">{formatCurrency(selectedPurchase.iva_monto)}</p></div>}
-                  {selectedPurchase.iibb_monto && <div><p className="text-xs text-muted-foreground">IIBB</p><p className="font-medium tabular-nums">{formatCurrency(selectedPurchase.iibb_monto)}</p></div>}
-                  {selectedPurchase.total && <div><p className="text-xs text-muted-foreground">Total</p><p className="font-bold text-base tabular-nums">{formatCurrency(selectedPurchase.total)}</p></div>}
-                </div>
-                {selectedPurchase.invoice_image_url && (
-                  <a href={selectedPurchase.invoice_image_url} target="_blank" rel="noopener noreferrer" className="shrink-0">
-                    <img
-                      src={selectedPurchase.invoice_image_url}
-                      alt="Factura"
-                      className="w-28 rounded-lg border border-border object-cover hover:opacity-80 transition-opacity"
-                    />
-                  </a>
-                )}
-              </div>
-
-              {/* Items */}
-              <div>
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Detalle de productos</p>
-                {loadingPurchaseItems ? (
-                  <p className="text-sm text-center py-4 text-muted-foreground">Cargando...</p>
-                ) : (
-                  <div className="border border-border rounded-lg overflow-hidden">
-                    <table className="w-full text-xs">
-                      <thead>
-                        <tr className="bg-neutral-50 border-b border-border">
-                          <th className="text-left px-3 py-2 text-muted-foreground font-medium">Producto</th>
-                          <th className="text-center px-3 py-2 text-muted-foreground font-medium">Cant.</th>
-                          <th className="text-right px-3 py-2 text-muted-foreground font-medium">Costo c/u</th>
-                          <th className="text-right px-3 py-2 text-muted-foreground font-medium">Total costo</th>
-                          <th className="text-right px-3 py-2 text-muted-foreground font-medium">Mostrador</th>
-                          <th className="text-right px-3 py-2 text-muted-foreground font-medium">Rent.</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-border">
-                        {purchaseItems.map((item: any) => (
-                          <tr key={item.id} className="hover:bg-neutral-50">
-                            <td className="px-3 py-2">
-                              <p className="font-medium text-foreground">{item.product?.name ?? '—'}</p>
-                              <p className="text-muted-foreground text-[10px]">{item.descripcion_factura}</p>
-                            </td>
-                            <td className="px-3 py-2 text-center tabular-nums">{item.cantidad}</td>
-                            <td className="px-3 py-2 text-right tabular-nums">{item.costo_unit ? formatCurrency(item.costo_unit) : '—'}</td>
-                            <td className="px-3 py-2 text-right tabular-nums">{item.costo_total ? formatCurrency(item.costo_total) : '—'}</td>
-                            <td className="px-3 py-2 text-right tabular-nums">{item.sell_price ? formatCurrency(item.sell_price) : '—'}</td>
-                            <td className={cn('px-3 py-2 text-right tabular-nums font-semibold', item.rent_pct >= 20 ? 'text-emerald-600' : item.rent_pct !== null ? 'text-red-500' : '')}>
-                              {item.rent_pct !== null ? `${item.rent_pct}%` : '—'}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
                   </div>
                 )}
               </div>
