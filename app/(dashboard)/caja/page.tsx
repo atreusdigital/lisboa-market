@@ -17,6 +17,7 @@ export default async function CajaPage() {
 
   const [
     { data: branches },
+    { data: branchUsers },
     { data: openShift },
     { data: todaySales },
     { data: todayExpenses },
@@ -25,6 +26,9 @@ export default async function CajaPage() {
     { count: alertCount },
   ] = await Promise.all([
     supabase.from('branches').select('id, name, address, created_at'),
+    profile.branch_id
+      ? supabase.from('profiles').select('id, full_name, role').eq('branch_id', profile.branch_id)
+      : supabase.from('profiles').select('id, full_name, role'),
     profile.branch_id
       ? supabase.from('shifts').select('*, user:profiles(full_name)').eq('status', 'open').eq('branch_id', profile.branch_id).maybeSingle()
       : supabase.from('shifts').select('*, user:profiles(full_name)').eq('status', 'open').maybeSingle(),
@@ -68,6 +72,7 @@ export default async function CajaPage() {
         <CajaModule
           profile={profile}
           branches={branches ?? []}
+          branchUsers={branchUsers ?? []}
           openShift={openShift}
           efectivoHoy={efectivoHoy}
           mpHoy={mpHoy}

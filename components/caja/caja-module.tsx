@@ -14,7 +14,7 @@ import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import {
   Clock, DollarSign, TrendingUp, Wallet, AlertTriangle, CheckCircle2,
-  Plus, Trash2, Timer, User, ChevronDown, ChevronUp
+  Plus, Trash2, Timer, User, ChevronDown, ChevronUp, CreditCard, Banknote
 } from 'lucide-react'
 import type { Profile, Branch, Expense, Shift, CashClosing } from '@/types'
 
@@ -22,7 +22,7 @@ const LISBOA_GREEN = '#1C2B23'
 
 const DENOMINATIONS = [20000, 10000, 5000, 2000, 1000, 500, 200, 100, 50]
 
-const EXPENSE_CATEGORIES = [
+const DEFAULT_EXPENSE_CATEGORIES = [
   { value: 'electricidad', label: '⚡ Electricidad' },
   { value: 'limpieza', label: '🧹 Limpieza' },
   { value: 'delivery', label: '🚚 Delivery' },
@@ -34,9 +34,12 @@ const EXPENSE_CATEGORIES = [
 
 const fmt = (n: number) => `$${n.toLocaleString('es-AR', { minimumFractionDigits: 0 })}`
 
+interface BranchUser { id: string; full_name: string; role: string }
+
 interface Props {
   profile: Profile
   branches: Branch[]
+  branchUsers: BranchUser[]
   openShift: (Shift & { user?: { full_name: string } }) | null
   efectivoHoy: number
   mpHoy: number
@@ -48,17 +51,18 @@ interface Props {
 }
 
 export function CajaModule({
-  profile, branches, openShift, efectivoHoy, mpHoy, totalHoy, salesCount,
+  profile, branches, branchUsers, openShift, efectivoHoy, mpHoy, totalHoy, salesCount,
   todayExpenses, recentClosings, recentShifts
 }: Props) {
   const supabase = createClient()
   const isDirector = profile.role === 'director'
+  const isAdmin = profile.role === 'director' || profile.role === 'admin'
 
-  // Para directores: selector de sucursal activa
-  const [selectedBranchId, setSelectedBranchId] = useState(
-    profile.branch_id ?? branches[0]?.id ?? ''
-  )
+  const [selectedBranchId, setSelectedBranchId] = useState(profile.branch_id ?? branches[0]?.id ?? '')
   const branchId = selectedBranchId
+
+  // Selector de usuario para turno
+  const [selectedUserId, setSelectedUserId] = useState(profile.id)
 
   // Turno state
   const [shift, setShift] = useState<(Shift & { user?: { full_name: string } }) | null>(openShift)
@@ -78,12 +82,11 @@ export function CajaModule({
 
   // Gastos state
   const [expenses, setExpenses] = useState(todayExpenses)
-  const [expenseForm, setExpenseForm] = useState({
-    category: 'otros',
-    description: '',
-    amount: '',
-  })
+  const [expenseCategories, setExpenseCategories] = useState(DEFAULT_EXPENSE_CATEGORIES)
+  const [expenseForm, setExpenseForm] = useState({ category: 'otros', description: '', amount: '' })
   const [expenseLoading, setExpenseLoading] = useState(false)
+  const [showAddCategory, setShowAddCategory] = useState(false)
+  const [newCategoryName, setNewCategoryName] = useState('')
 
   const totalExpensesHoy = expenses.reduce((s, e) => s + e.amount, 0)
 
@@ -92,14 +95,15 @@ export function CajaModule({
     if (!openingCash) { toast.error('Ingresá el efectivo inicial'); return }
     if (!branchId) { toast.error('Seleccioná una sucursal'); return }
     setShiftLoading(true)
+    const selectedUser = branchUsers.find(u => u.id === selectedUserId)
     const { data, error } = await supabase.from('shifts').insert({
       branch_id: branchId,
-      user_id: profile.id,
+      user_id: selectedUserId,
       opening_cash: parseFloat(openingCash),
       status: 'open',
     }).select('*, user:profiles(full_name)').single()
     if (error) { toast.error(`Error al abrir turno: ${error.message}`); setShiftLoading(false); return }
-    setShift(data)
+    setShift({ ...data, user: { full_name: selectedUser?.full_name ?? data.user?.full_name ?? '' } })
     setOpeningCash('')
     toast.success('Turno abierto')
     setShiftLoading(false)
@@ -148,10 +152,7 @@ export function CajaModule({
 
   // ─── GASTOS ──────────────────────────────────────────────
   async function addExpense() {
-    if (!expenseForm.description || !expenseForm.amount) {
-      toast.error('Completá descripción y monto')
-      return
-    }
+    if (!expenseForm.description || !expenseForm.amount) { toast.error('Completá descripción y monto'); return }
     setExpenseLoading(true)
     if (!branchId) { toast.error('Seleccioná una sucursal'); setExpenseLoading(false); return }
     const { data, error } = await supabase.from('expenses').insert({
@@ -176,7 +177,17 @@ export function CajaModule({
     toast.success('Gasto eliminado')
   }
 
-  // ─── Duración del turno ───────────────────────────────────
+  function addExpenseCategory() {
+    const name = newCategoryName.trim()
+    if (!name) return
+    const value = name.toLowerCase().replace(/\s+/g, '_')
+    if (expenseCategories.find(c => c.value === value)) { toast.error('Ya existe esa categoría'); return }
+    setExpenseCategories(prev => [...prev, { value, label: `📋 ${name}` }])
+    setNewCategoryName('')
+    setShowAddCategory(false)
+    toast.success(`Categoría "${name}" agregada`)
+  }
+
   function shiftDuration(openedAt: string) {
     const diff = Date.now() - new Date(openedAt).getTime()
     const h = Math.floor(diff / 3600000)
@@ -267,6 +278,24 @@ export function CajaModule({
                   </div>
                 </div>
 
+                {/* Selector de usuario para cierre */}
+                {branchUsers.length > 1 && (
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">¿Quién cierra el turno?</Label>
+                    <Select value={selectedUserId} onValueChange={v => v && setSelectedUserId(v)}>
+                      <SelectTrigger className="h-9 text-sm">
+                        <User className="w-3.5 h-3.5 mr-2 text-muted-foreground" />
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {branchUsers.map(u => (
+                          <SelectItem key={u.id} value={u.id}>{u.full_name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
                 <div className="border-t border-border pt-3 space-y-3">
                   <Label className="text-xs">Efectivo al cerrar turno</Label>
                   <Input
@@ -282,12 +311,7 @@ export function CajaModule({
                     placeholder="Notas del turno (opcional)..."
                     className="text-sm resize-none h-20"
                   />
-                  <Button
-                    onClick={closeShiftFn}
-                    disabled={shiftLoading}
-                    variant="outline"
-                    className="w-full text-sm"
-                  >
+                  <Button onClick={closeShiftFn} disabled={shiftLoading} variant="outline" className="w-full text-sm">
                     Cerrar turno
                   </Button>
                 </div>
@@ -299,6 +323,25 @@ export function CajaModule({
                 <h3 className="text-sm font-semibold mb-1">Abrir turno</h3>
                 <p className="text-xs text-muted-foreground">Registrá el efectivo inicial en caja al empezar el turno</p>
               </div>
+
+              {/* Selector de usuario para apertura */}
+              {branchUsers.length > 1 && (
+                <div className="space-y-1.5">
+                  <Label className="text-xs">¿Quién abre el turno?</Label>
+                  <Select value={selectedUserId} onValueChange={v => v && setSelectedUserId(v)}>
+                    <SelectTrigger className="h-9 text-sm">
+                      <User className="w-3.5 h-3.5 mr-2 text-muted-foreground" />
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {branchUsers.map(u => (
+                        <SelectItem key={u.id} value={u.id}>{u.full_name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
               <div className="space-y-2">
                 <Label className="text-xs">Efectivo inicial en caja</Label>
                 <Input
@@ -309,19 +352,13 @@ export function CajaModule({
                   className="h-9"
                 />
               </div>
-              <Button
-                onClick={openShiftFn}
-                disabled={shiftLoading}
-                className="w-full text-white text-sm h-10"
-                style={{ backgroundColor: LISBOA_GREEN }}
-              >
+              <Button onClick={openShiftFn} disabled={shiftLoading} className="w-full text-white text-sm h-10" style={{ backgroundColor: LISBOA_GREEN }}>
                 <Clock className="w-4 h-4 mr-2" />
                 Abrir turno
               </Button>
             </Card>
           )}
 
-          {/* Turnos recientes */}
           {recentShifts.length > 0 && (
             <Card className="border-border overflow-hidden">
               <div className="px-4 py-3 border-b border-border bg-neutral-50">
@@ -353,8 +390,30 @@ export function CajaModule({
 
         {/* ── CIERRE DE CAJA ── */}
         <TabsContent value="cierre" className="mt-4 space-y-4">
-          <div className="grid md:grid-cols-2 gap-4">
 
+          {/* Resumen efectivo + MP antes de cerrar */}
+          <div className="grid grid-cols-2 gap-3">
+            <Card className="p-3 border-border flex items-center gap-3">
+              <div className="w-9 h-9 rounded-lg bg-green-100 flex items-center justify-center shrink-0">
+                <Banknote className="w-5 h-5 text-green-700" />
+              </div>
+              <div>
+                <p className="text-[11px] text-muted-foreground">Efectivo del día</p>
+                <p className="text-lg font-bold">{fmt(efectivoHoy)}</p>
+              </div>
+            </Card>
+            <Card className="p-3 border-border flex items-center gap-3">
+              <div className="w-9 h-9 rounded-lg bg-blue-100 flex items-center justify-center shrink-0">
+                <CreditCard className="w-5 h-5 text-blue-700" />
+              </div>
+              <div>
+                <p className="text-[11px] text-muted-foreground">MercadoPago del día</p>
+                <p className="text-lg font-bold">{fmt(mpHoy)}</p>
+              </div>
+            </Card>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-4">
             {/* Conteo de billetes */}
             <Card className="border-border overflow-hidden">
               <div className="px-4 py-3 border-b border-border bg-neutral-50">
@@ -425,10 +484,7 @@ export function CajaModule({
                     <span className="text-muted-foreground">Recuento efectivo</span>
                     <span className="tabular-nums">{fmt(billTotal)}</span>
                   </div>
-                  <div className={cn(
-                    'flex justify-between border-t border-border pt-2 mt-1 font-bold',
-                    diff === 0 ? 'text-green-600' : diff > 0 ? 'text-blue-600' : 'text-red-600'
-                  )}>
+                  <div className={cn('flex justify-between border-t border-border pt-2 mt-1 font-bold', diff === 0 ? 'text-green-600' : diff > 0 ? 'text-blue-600' : 'text-red-600')}>
                     <span>DIFERENCIA</span>
                     <span className="tabular-nums">{diff >= 0 ? '+' : ''}{fmt(diff)}</span>
                   </div>
@@ -453,25 +509,16 @@ export function CajaModule({
                 className="text-sm resize-none h-16"
               />
 
-              <Button
-                onClick={saveCashClosing}
-                disabled={closingLoading || billTotal === 0}
-                className="w-full text-white h-10"
-                style={{ backgroundColor: LISBOA_GREEN }}
-              >
+              <Button onClick={saveCashClosing} disabled={closingLoading || billTotal === 0} className="w-full text-white h-10" style={{ backgroundColor: LISBOA_GREEN }}>
                 <DollarSign className="w-4 h-4 mr-2" />
                 Guardar cierre de caja
               </Button>
             </div>
           </div>
 
-          {/* Historial de cierres */}
           {recentClosings.length > 0 && (
             <Card className="border-border overflow-hidden">
-              <button
-                onClick={() => setShowRecentClosings(!showRecentClosings)}
-                className="w-full px-4 py-3 border-b border-border bg-neutral-50 flex items-center justify-between"
-              >
+              <button onClick={() => setShowRecentClosings(!showRecentClosings)} className="w-full px-4 py-3 border-b border-border bg-neutral-50 flex items-center justify-between">
                 <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Cierres recientes</p>
                 {showRecentClosings ? <ChevronUp className="w-3.5 h-3.5 text-muted-foreground" /> : <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />}
               </button>
@@ -500,7 +547,35 @@ export function CajaModule({
         {/* ── GASTOS ── */}
         <TabsContent value="gastos" className="mt-4 space-y-4">
           <Card className="border-border p-4 space-y-4">
-            <h3 className="text-sm font-semibold">Registrar gasto</h3>
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold">Registrar gasto</h3>
+              {isAdmin && (
+                <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => setShowAddCategory(!showAddCategory)}>
+                  <Plus className="w-3 h-3" /> Agregar categoría
+                </Button>
+              )}
+            </div>
+
+            {/* Inline form para nueva categoría */}
+            {showAddCategory && isAdmin && (
+              <div className="flex gap-2 p-3 bg-neutral-50 rounded-lg border border-border">
+                <Input
+                  value={newCategoryName}
+                  onChange={e => setNewCategoryName(e.target.value)}
+                  placeholder="Nombre de la categoría..."
+                  className="h-8 text-sm flex-1"
+                  onKeyDown={e => e.key === 'Enter' && addExpenseCategory()}
+                  autoFocus
+                />
+                <Button size="sm" className="h-8 text-xs bg-black text-white hover:bg-neutral-800" onClick={addExpenseCategory}>
+                  Agregar
+                </Button>
+                <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => { setShowAddCategory(false); setNewCategoryName('') }}>
+                  Cancelar
+                </Button>
+              </div>
+            )}
+
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label className="text-xs">Categoría</Label>
@@ -509,7 +584,7 @@ export function CajaModule({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {EXPENSE_CATEGORIES.map(c => (
+                    {expenseCategories.map(c => (
                       <SelectItem key={c.value} value={c.value} className="text-xs">{c.label}</SelectItem>
                     ))}
                   </SelectContent>
@@ -535,12 +610,7 @@ export function CajaModule({
                 className="h-9 text-sm"
               />
             </div>
-            <Button
-              onClick={addExpense}
-              disabled={expenseLoading}
-              className="w-full text-white h-9 text-sm"
-              style={{ backgroundColor: LISBOA_GREEN }}
-            >
+            <Button onClick={addExpense} disabled={expenseLoading} className="w-full text-white h-9 text-sm" style={{ backgroundColor: LISBOA_GREEN }}>
               <Plus className="w-4 h-4 mr-1.5" />
               Registrar gasto
             </Button>
@@ -560,16 +630,13 @@ export function CajaModule({
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{e.description}</p>
                       <p className="text-xs text-muted-foreground">
-                        {EXPENSE_CATEGORIES.find(c => c.value === e.category)?.label} · {(e as any).user?.full_name}
+                        {expenseCategories.find(c => c.value === e.category)?.label ?? e.category} · {(e as any).user?.full_name}
                       </p>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       <span className="text-sm font-semibold text-red-600">{fmt(e.amount)}</span>
-                      {(profile.role === 'director' || profile.role === 'admin') && (
-                        <button
-                          onClick={() => deleteExpense(e.id)}
-                          className="p-1 rounded text-muted-foreground hover:text-red-500 hover:bg-red-50 transition-colors"
-                        >
+                      {isAdmin && (
+                        <button onClick={() => deleteExpense(e.id)} className="p-1 rounded text-muted-foreground hover:text-red-500 hover:bg-red-50 transition-colors">
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       )}

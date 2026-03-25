@@ -13,7 +13,7 @@ import { Card } from '@/components/ui/card'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
-import { Plus, Pencil, Trash2, Eye, EyeOff } from 'lucide-react'
+import { Plus, Pencil, Trash2, Eye, EyeOff, ShieldCheck, ShieldAlert, Shield } from 'lucide-react'
 
 const roleColors: Record<string, string> = {
   director: 'bg-neutral-900 text-white',
@@ -139,6 +139,7 @@ export function UsersModule({ users: initial, branches, activityLog, currentProf
         <TabsList className="h-8">
           <TabsTrigger value="users" className="text-xs h-7">Usuarios</TabsTrigger>
           <TabsTrigger value="activity" className="text-xs h-7">Historial</TabsTrigger>
+          <TabsTrigger value="permisos" className="text-xs h-7">Permisos</TabsTrigger>
         </TabsList>
 
         {/* TABLA DE USUARIOS */}
@@ -245,6 +246,88 @@ export function UsersModule({ users: initial, branches, activityLog, currentProf
               </table>
             </div>
           </Card>
+        </TabsContent>
+
+        {/* PERMISOS */}
+        <TabsContent value="permisos" className="mt-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* DUEÑO */}
+            <Card className="border-neutral-900 overflow-hidden">
+              <div className="bg-neutral-900 px-4 py-3 flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-white" />
+                <span className="text-sm font-semibold text-white">Dueño</span>
+                <Badge className="ml-auto text-[10px] bg-white text-neutral-900 border-0">director</Badge>
+              </div>
+              <div className="p-4 space-y-2 text-xs text-muted-foreground">
+                <p className="font-semibold text-foreground mb-1">Acceso completo al sistema</p>
+                <ul className="space-y-1.5">
+                  <li className="flex items-start gap-1.5"><span className="text-green-600 mt-0.5">✓</span> Ver y gestionar todas las sucursales</li>
+                  <li className="flex items-start gap-1.5"><span className="text-green-600 mt-0.5">✓</span> Crear, editar y eliminar usuarios</li>
+                  <li className="flex items-start gap-1.5"><span className="text-green-600 mt-0.5">✓</span> Abrir y cerrar turnos (cualquier usuario)</li>
+                  <li className="flex items-start gap-1.5"><span className="text-green-600 mt-0.5">✓</span> Realizar cierres de caja</li>
+                  <li className="flex items-start gap-1.5"><span className="text-green-600 mt-0.5">✓</span> Agregar y eliminar categorías de gastos</li>
+                  <li className="flex items-start gap-1.5"><span className="text-green-600 mt-0.5">✓</span> Registrar gastos</li>
+                  <li className="flex items-start gap-1.5"><span className="text-green-600 mt-0.5">✓</span> Importar y limpiar catálogo de productos</li>
+                  <li className="flex items-start gap-1.5"><span className="text-green-600 mt-0.5">✓</span> Crear y gestionar proveedores y pedidos</li>
+                  <li className="flex items-start gap-1.5"><span className="text-green-600 mt-0.5">✓</span> Escanear remitos con IA</li>
+                  <li className="flex items-start gap-1.5"><span className="text-green-600 mt-0.5">✓</span> Ver reportes y análisis de ventas</li>
+                  <li className="flex items-start gap-1.5"><span className="text-green-600 mt-0.5">✓</span> Gestionar alertas de stock</li>
+                  <li className="flex items-start gap-1.5"><span className="text-green-600 mt-0.5">✓</span> Crear y activar promociones</li>
+                </ul>
+              </div>
+            </Card>
+
+            {/* ENCARGADO */}
+            <Card className="border-blue-200 overflow-hidden">
+              <div className="bg-blue-600 px-4 py-3 flex items-center gap-2">
+                <ShieldAlert className="w-4 h-4 text-white" />
+                <span className="text-sm font-semibold text-white">Encargado</span>
+                <Badge className="ml-auto text-[10px] bg-white text-blue-700 border-0">admin</Badge>
+              </div>
+              <div className="p-4 space-y-2 text-xs text-muted-foreground">
+                <p className="font-semibold text-foreground mb-1">Gestión operativa de la sucursal</p>
+                <ul className="space-y-1.5">
+                  <li className="flex items-start gap-1.5"><span className="text-green-600 mt-0.5">✓</span> Ver su sucursal asignada</li>
+                  <li className="flex items-start gap-1.5"><span className="text-green-600 mt-0.5">✓</span> Crear y editar usuarios (no dueños)</li>
+                  <li className="flex items-start gap-1.5"><span className="text-green-600 mt-0.5">✓</span> Abrir y cerrar turnos</li>
+                  <li className="flex items-start gap-1.5"><span className="text-green-600 mt-0.5">✓</span> Realizar cierres de caja</li>
+                  <li className="flex items-start gap-1.5"><span className="text-green-600 mt-0.5">✓</span> Agregar categorías de gastos</li>
+                  <li className="flex items-start gap-1.5"><span className="text-green-600 mt-0.5">✓</span> Registrar gastos</li>
+                  <li className="flex items-start gap-1.5"><span className="text-green-600 mt-0.5">✓</span> Importar catálogo de productos</li>
+                  <li className="flex items-start gap-1.5"><span className="text-green-600 mt-0.5">✓</span> Gestionar proveedores y pedidos</li>
+                  <li className="flex items-start gap-1.5"><span className="text-green-600 mt-0.5">✓</span> Escanear remitos con IA</li>
+                  <li className="flex items-start gap-1.5"><span className="text-green-600 mt-0.5">✓</span> Ver reportes de su sucursal</li>
+                  <li className="flex items-start gap-1.5"><span className="text-red-500 mt-0.5">✗</span> No puede limpiar catálogo completo</li>
+                  <li className="flex items-start gap-1.5"><span className="text-red-500 mt-0.5">✗</span> No puede ver otras sucursales</li>
+                </ul>
+              </div>
+            </Card>
+
+            {/* EMPLEADO */}
+            <Card className="border-neutral-200 overflow-hidden">
+              <div className="bg-neutral-100 px-4 py-3 flex items-center gap-2 border-b border-neutral-200">
+                <Shield className="w-4 h-4 text-neutral-500" />
+                <span className="text-sm font-semibold text-neutral-700">Empleado</span>
+                <Badge className="ml-auto text-[10px] bg-neutral-200 text-neutral-600 border-0">empleado</Badge>
+              </div>
+              <div className="p-4 space-y-2 text-xs text-muted-foreground">
+                <p className="font-semibold text-foreground mb-1">Operaciones básicas de venta</p>
+                <ul className="space-y-1.5">
+                  <li className="flex items-start gap-1.5"><span className="text-green-600 mt-0.5">✓</span> Registrar ventas (caja POS)</li>
+                  <li className="flex items-start gap-1.5"><span className="text-green-600 mt-0.5">✓</span> Consultar productos y precios</li>
+                  <li className="flex items-start gap-1.5"><span className="text-green-600 mt-0.5">✓</span> Ver alertas de stock</li>
+                  <li className="flex items-start gap-1.5"><span className="text-green-600 mt-0.5">✓</span> Registrar gastos (categorías existentes)</li>
+                  <li className="flex items-start gap-1.5"><span className="text-green-600 mt-0.5">✓</span> Ver pedidos a proveedores</li>
+                  <li className="flex items-start gap-1.5"><span className="text-red-500 mt-0.5">✗</span> No puede abrir/cerrar turnos</li>
+                  <li className="flex items-start gap-1.5"><span className="text-red-500 mt-0.5">✗</span> No puede realizar cierres de caja</li>
+                  <li className="flex items-start gap-1.5"><span className="text-red-500 mt-0.5">✗</span> No puede crear categorías de gastos</li>
+                  <li className="flex items-start gap-1.5"><span className="text-red-500 mt-0.5">✗</span> No puede gestionar usuarios</li>
+                  <li className="flex items-start gap-1.5"><span className="text-red-500 mt-0.5">✗</span> No puede importar productos</li>
+                  <li className="flex items-start gap-1.5"><span className="text-red-500 mt-0.5">✗</span> No puede ver reportes</li>
+                </ul>
+              </div>
+            </Card>
+          </div>
         </TabsContent>
       </Tabs>
 
