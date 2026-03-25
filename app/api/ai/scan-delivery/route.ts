@@ -49,9 +49,10 @@ Extraé TODA la información disponible y respondé ÚNICAMENTE con este JSON ex
   "items": [
     {
       "descripcion_factura": "descripción exacta tal como aparece en la factura",
+      "descripcion_normalizada": "nombre del producto expandido y corregido: expandí abreviaturas (CAR.→CARAMELOS, DESOD.→DESODORANTE, MAST.→MASTICABLES, GALL.→GALLETITAS, etc.), corregí typos evidentes (KETEROLACO→KETOROLACO), eliminá las cantidades por bulto entre paréntesis como (20), (16), (32). El resultado debe ser el nombre comercial limpio del producto.",
       "codigo_factura": "código de barras o código interno si está visible, sino null",
       "cantidad": número de unidades,
-      "precio_unit": precio unitario sin IVA como número (si está visible),
+      "precio_unit": precio unitario como número (usar columna 'Precio con desc.' si existe, sino 'Precio'),
       "importe": importe total del ítem como número (si está visible)
     }
   ],
@@ -66,8 +67,9 @@ Extraé TODA la información disponible y respondé ÚNICAMENTE con este JSON ex
 
 Reglas importantes:
 - La cantidad puede venir en cajas (DI, UN, etc.) - extraé la cantidad numérica
-- Si hay columna PRECIO UNIT usá ese valor (NO el IMPORTE que es precio × cantidad)
+- En "precio_unit": si hay columna "Precio con desc." usá ese valor (ya tiene descuento aplicado)
 - Si ves "B.O." o "BONIFICACIÓN" ignorala para el precio
+- NO incluyas como ítem las líneas de totales, saldos anteriores, cigarrillos/tabaquerías del pie
 - Extraé IVA, IIBB y cualquier percepción que aparezca en el pie de la factura
 - Si un campo no está visible, usá null`,
             },

@@ -15,6 +15,7 @@ import { cn } from '@/lib/utils'
 
 interface ScannedItem {
   descripcion_factura: string
+  descripcion_normalizada?: string
   codigo_factura: string | null
   cantidad: number
   precio_unit: number | null
@@ -49,24 +50,48 @@ interface Props {
 }
 
 // ── Fuzzy matching ──────────────────────────────────────────
-// Generic tokens that match across unrelated products — excluded from scoring
 const STOP_TOKENS = new Set([
   'de', 'la', 'el', 'un', 'en', 'con', 'sin', 'por', 'del',
-  'und', 'uni', 'caja', 'pack', 'paq', 'sobre', 'bols',
+  'und', 'uni', 'caja', 'pack', 'paq', 'sobre', 'bols', 'los', 'las',
 ])
-// Weight/size patterns like 75g, 125g, 500ml, 1kg, 1lt — too generic
-const SIZE_RE = /^\d+(\.\d+)?(g|ml|kg|lt|cc|mg|gr|oz|un|x)$/
+// Pure weight/size: 75g, 500ml, 1kg — but NOT x15/x10/x180 (unit counts, useful for matching)
+const SIZE_RE = /^\d+(\.\d+)?(g|ml|kg|lt|cc|mg|gr|oz)$/
 
 function normalizeStr(s: string): string[] {
   return s
     .toLowerCase()
-    .replace(/[.,×\/\\()\[\]]/g, ' ')  // removed x/X — preserve letters in brand names
+    .replace(/[.,+×\/\\()\[\]&]/g, ' ')   // also handle + and &
     .replace(/\s+/g, ' ')
     .trim()
     .split(' ')
-    .filter(t => t.length >= 3)        // min 3 chars to reduce false positives
+    .filter(t => t.length >= 3)
     .filter(t => !STOP_TOKENS.has(t))
-    .filter(t => !SIZE_RE.test(t))     // exclude weight/size tokens
+    .filter(t => !SIZE_RE.test(t))
+    .filter(t => !/^\d+$/.test(t))         // exclude pure numbers like (20), (16), (32)
+}
+
+// Levenshtein distance for typo tolerance (OCR errors, abbreviations)
+function lev(a: string, b: string): number {
+  if (Math.abs(a.length - b.length) > 2) return 99
+  const dp: number[][] = []
+  for (let i = 0; i <= a.length; i++) {
+    dp[i] = [i]
+    for (let j = 1; j <= b.length; j++) {
+      dp[i][j] = i === 0 ? j
+        : Math.min(dp[i - 1][j] + 1, dp[i][j - 1] + 1, dp[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1))
+    }
+  }
+  return dp[a.length][b.length]
+}
+
+function tokensMatch(at: string, bt: string): boolean {
+  if (at === bt) return true
+  const minLen = Math.min(at.length, bt.length)
+  // Prefix match: "car" matches "caramelos", "diclof" matches "diclofenac"
+  if (minLen >= 3 && (at.startsWith(bt) || bt.startsWith(at))) return true
+  // Fuzzy match: 1 typo/OCR error allowed for words ≥ 6 chars ("keterolaco" → "ketorolaco")
+  if (at.length >= 6 && bt.length >= 6 && lev(at, bt) <= 1) return true
+  return false
 }
 
 function tokenSimilarity(a: string, b: string): number {
@@ -76,32 +101,21 @@ function tokenSimilarity(a: string, b: string): number {
 
   let matches = 0
   for (const at of aTokens) {
-    for (const bt of bTokens) {
-      // Exact match or one is prefix of the other (min 4 chars to avoid "cho" matching "chocolate" + "chorizo")
-      const minLen = Math.min(at.length, bt.length)
-      if (at === bt || (minLen >= 4 && (at.startsWith(bt) || bt.startsWith(at)))) {
-        matches++
-        break
-      }
-    }
+    if (bTokens.some(bt => tokensMatch(at, bt))) matches++
   }
-  return matches / Math.max(aTokens.length, bTokens.length)
+  // Geometric mean of token counts: rewards short catalog names that fully match
+  // e.g. catalog="DICLOFENAC" (1 token) fully contained in invoice "DICLOFENAC 75G TIRA X15" (3 tokens) → 1/√3 = 0.58
+  return matches / Math.sqrt(aTokens.length * bTokens.length)
 }
 
 function findBestMatch(invoice: string, barcode: string | null, products: Product[]): { product: Product; score: number } | null {
   let best: Product | null = null
-  let bestScore = 0.35 // minimum threshold
+  let bestScore = 0.28 // lowered threshold — geometric mean scoring is more conservative
 
   for (const p of products) {
-    // Exact barcode match wins immediately
-    if (barcode && p.barcode && p.barcode === barcode) {
-      return { product: p, score: 1 }
-    }
+    if (barcode && p.barcode && p.barcode === barcode) return { product: p, score: 1 }
     const score = tokenSimilarity(invoice, p.name)
-    if (score > bestScore) {
-      bestScore = score
-      best = p
-    }
+    if (score > bestScore) { bestScore = score; best = p }
   }
   return best ? { product: best, score: bestScore } : null
 }
@@ -163,15 +177,19 @@ export function ScanDeliveryDialog({ open, onClose, products, branches, profileB
 
       setInvoice(data)
 
-      // Fuzzy match each item
+      // Fuzzy match each item — try normalizada first, fall back to factura
       const matched: ScannedItem[] = (data.items ?? []).map((item: {
         descripcion_factura: string
+        descripcion_normalizada?: string
         codigo_factura: string | null
         cantidad: number
         precio_unit: number | null
         importe: number | null
       }) => {
-        const result = findBestMatch(item.descripcion_factura, item.codigo_factura, products)
+        const queryNorm = item.descripcion_normalizada ?? item.descripcion_factura
+        const r1 = findBestMatch(queryNorm, item.codigo_factura, products)
+        const r2 = !r1 ? findBestMatch(item.descripcion_factura, item.codigo_factura, products) : null
+        const result = r1 ?? r2
         return {
           ...item,
           product_id: result?.product.id,
@@ -383,7 +401,10 @@ export function ScanDeliveryDialog({ open, onClose, products, branches, profileB
                     {/* Row 1: invoice description + quantity */}
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm text-muted-foreground">Factura: {item.descripcion_factura}</p>
+                        <p className="text-xs text-muted-foreground">Factura: {item.descripcion_factura}</p>
+                        {item.descripcion_normalizada && item.descripcion_normalizada !== item.descripcion_factura && (
+                          <p className="text-xs text-blue-500">IA: {item.descripcion_normalizada}</p>
+                        )}
                         {item.matched ? (
                           <p className="text-base font-semibold text-emerald-700 mt-0.5">{item.matched_name}</p>
                         ) : (
