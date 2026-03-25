@@ -78,7 +78,6 @@ function parseCSV(text: string): ParsedRow[] {
 
     const errors: string[] = []
     if (!name) errors.push('Descripcion requerida')
-    if (sell_price <= 0) errors.push('Lista Mostrador inválida')
 
     return {
       barcode: barcode ?? '',
@@ -219,7 +218,7 @@ export function BulkImportDialog({ open, onClose, branches, profileBranchId, isD
     { label: 'Descripcion', required: true },
     { label: 'categoria', required: false },
     { label: 'subcategoria', required: false },
-    { label: 'Lista Mostrador', required: true },
+    { label: 'Lista Mostrador', required: false },
     { label: 'Lista PedidosYa', required: false },
     { label: 'Lista Rappi', required: false },
     { label: 'Costo', required: false },
@@ -239,8 +238,8 @@ export function BulkImportDialog({ open, onClose, branches, profileBranchId, isD
           <div className="space-y-4 pt-2">
             <p className="text-xs text-muted-foreground">
               Subí un archivo CSV con tus productos. Podés exportarlo desde Excel o Google Sheets.
-              Las columnas requeridas son:{' '}
-              <span className="font-medium text-foreground">Descripcion, Lista Mostrador</span>. El resto es opcional.
+              La única columna requerida es:{' '}
+              <span className="font-medium text-foreground">Descripcion</span>. El resto es opcional.
             </p>
 
             {/* Drop zone */}
