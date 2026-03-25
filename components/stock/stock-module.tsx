@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Search, Plus, AlertTriangle, Camera, History, Pencil, Upload, Trash2, AlertOctagon } from 'lucide-react'
+import { Search, Plus, AlertTriangle, Camera, History, Pencil, Upload, Trash2, AlertOctagon, Download } from 'lucide-react'
 import { ProductDialog } from './product-dialog'
 import { ScanDeliveryDialog } from './scan-delivery-dialog'
 import { StockMovementsDialog } from './stock-movements-dialog'
@@ -119,6 +119,34 @@ export function StockModule({ stockItems, branches, products, profile }: Props) 
 
   const lowStockCount = allItems.filter((i) => i.quantity <= i.min_quantity).length
 
+  function handleExportCSV() {
+    const headers = ['Codigo', 'Descripcion', 'categoria', 'subcategoria', 'Lista Mostrador', 'Lista PedidosYa', 'Lista Rappi', 'Costo', 'Stock Minimo', 'Stock']
+    const rows = allItems.map(item => {
+      const p = item.product
+      return [
+        p?.barcode ?? '',
+        p?.name ?? '',
+        p?.category ?? '',
+        p?.subcategory ?? '',
+        p?.sell_price ?? 0,
+        p?.pedidos_ya_price ?? 0,
+        p?.rappi_price ?? 0,
+        p?.cost_price ?? 0,
+        item.min_quantity ?? 0,
+        item.quantity ?? 0,
+      ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')
+    })
+    const csv = [headers.join(','), ...rows].join('\n')
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `productos_${new Date().toISOString().split('T')[0]}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+    toast.success(`${allItems.length} productos exportados`)
+  }
+
   return (
     <div className="space-y-4">
       {/* Header */}
@@ -136,6 +164,9 @@ export function StockModule({ stockItems, branches, products, profile }: Props) 
           <div className="flex items-center gap-2 flex-wrap">
             <Button variant="outline" size="sm" onClick={() => setShowClearConfirm(true)} className="h-8 text-xs gap-1.5 border-red-200 text-red-600 hover:bg-red-50 hover:border-red-400">
               <Trash2 className="w-3.5 h-3.5" /> Limpiar catálogo
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleExportCSV} className="h-8 text-xs gap-1.5">
+              <Download className="w-3.5 h-3.5" /> Exportar CSV
             </Button>
             <Button variant="outline" size="sm" onClick={() => setShowBulkImport(true)} className="h-8 text-xs gap-1.5">
               <Upload className="w-3.5 h-3.5" /> Importar CSV
