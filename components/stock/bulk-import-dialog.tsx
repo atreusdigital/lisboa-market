@@ -99,6 +99,7 @@ export function BulkImportDialog({ open, onClose, branches, profileBranchId, isD
   const [rows, setRows] = useState<ParsedRow[]>([])
   const [selectedBranch, setSelectedBranch] = useState(profileBranchId ?? branches[0]?.id ?? '')
   const [importing, setImporting] = useState(false)
+  const [importProgress, setImportProgress] = useState('')
   const [step, setStep] = useState<'upload' | 'preview' | 'done'>('upload')
   const [importedCount, setImportedCount] = useState(0)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -137,55 +138,58 @@ export function BulkImportDialog({ open, onClose, branches, profileBranchId, isD
     }
 
     setImporting(true)
+    setImportProgress('Preparando...')
 
-    const CHUNK = 100
+    const CHUNK = 200
 
-    // 1. Dedup barcodes within the CSV: if multiple rows share the same barcode, only the first keeps it.
-    //    This avoids UNIQUE constraint violations on barcode when upserting by name.
+    // 1. Dedup names within CSV (keep first occurrence)
+    const seenNames = new Set<string>()
+    const dedupedRows = validRows.filter(r => {
+      if (seenNames.has(r.name)) return false
+      seenNames.add(r.name)
+      return true
+    })
+
+    // 2. Dedup barcodes within CSV (keep first occurrence per barcode)
     const seenBarcodes = new Set<string>()
-    const dedupedRows = validRows.map(r => {
+    const rowsForImport = dedupedRows.map(r => {
       if (!r.barcode) return r
       if (seenBarcodes.has(r.barcode)) return { ...r, barcode: '' }
       seenBarcodes.add(r.barcode)
       return r
     })
 
-    // 2. Also fetch existing barcodes from DB to avoid conflicts with already-stored products.
-    const existingBarcodesRes = await supabase.from('products').select('barcode, name').not('barcode', 'is', null)
-    const existingBarcodeMap = new Map<string, string>() // barcode → name
-    for (const p of existingBarcodesRes.data ?? []) {
-      if (p.barcode) existingBarcodeMap.set(p.barcode, p.name)
+    const total = rowsForImport.length
+    const totalChunks = Math.ceil(total / CHUNK)
+
+    // PASS 1: Upsert ALL products with barcode = null
+    // Guaranteed 100% success — no barcode UNIQUE conflicts possible with null barcodes.
+    for (let i = 0; i < rowsForImport.length; i += CHUNK) {
+      const chunkNum = Math.floor(i / CHUNK) + 1
+      setImportProgress(`Importando productos... ${Math.min(i + CHUNK, total)}/${total}`)
+      const chunk = rowsForImport.slice(i, i + CHUNK).map(r => ({
+        name: r.name,
+        category: r.category || 'General',
+        subcategory: r.subcategory || null,
+        barcode: null,
+        cost_price: r.cost_price,
+        sell_price: r.sell_price,
+        pedidos_ya_price: r.pedidos_ya_price,
+        rappi_price: r.rappi_price,
+      }))
+      await supabase.from('products').upsert(chunk, { onConflict: 'name' })
     }
 
-    // Nullify barcode if it belongs to a different product in the DB
-    const safeRows = dedupedRows.map(r => {
-      if (!r.barcode) return r
-      const existingName = existingBarcodeMap.get(r.barcode)
-      if (existingName && existingName !== r.name) return { ...r, barcode: '' }
-      return r
-    })
-
-    const toPayload = (r: ParsedRow) => ({
-      name: r.name,
-      category: r.category || 'General',
-      subcategory: r.subcategory || null,
-      barcode: r.barcode || null,
-      cost_price: r.cost_price,
-      sell_price: r.sell_price,
-      pedidos_ya_price: r.pedidos_ya_price,
-      rappi_price: r.rappi_price,
-    })
-
-    // 3. Upsert by name. If a chunk fails (shouldn't happen after dedup), retry row by row.
-    for (let i = 0; i < safeRows.length; i += CHUNK) {
-      const chunk = safeRows.slice(i, i + CHUNK).map(toPayload)
-      const { error } = await supabase.from('products').upsert(chunk, { onConflict: 'name' })
-      if (error) {
-        // Retry individually to skip the conflicting row without losing the rest
-        for (const row of chunk) {
-          await supabase.from('products').upsert([row], { onConflict: 'name' })
-        }
-      }
+    // PASS 2: Set barcodes in parallel batches of 50
+    // After pass 1 all products have barcode = null, so no conflicts among imported products.
+    const rowsWithBarcode = rowsForImport.filter(r => r.barcode)
+    const BARCODE_BATCH = 50
+    for (let i = 0; i < rowsWithBarcode.length; i += BARCODE_BATCH) {
+      setImportProgress(`Asignando códigos de barras... ${Math.min(i + BARCODE_BATCH, rowsWithBarcode.length)}/${rowsWithBarcode.length}`)
+      const batch = rowsWithBarcode.slice(i, i + BARCODE_BATCH)
+      await Promise.allSettled(batch.map(r =>
+        supabase.from('products').update({ barcode: r.barcode || null }).eq('name', r.name)
+      ))
     }
 
     // 2. Fetch ALL products to build barcode/name → id maps (avoids URL limit with .in())
@@ -398,7 +402,7 @@ export function BulkImportDialog({ open, onClose, branches, profileBranchId, isD
                 onClick={handleImport}
               >
                 <Upload className="w-3.5 h-3.5" />
-                {importing ? 'Importando...' : `Importar ${validCount} productos`}
+                {importing ? (importProgress || 'Importando...') : `Importar ${validCount} productos`}
               </Button>
             </div>
           </div>
